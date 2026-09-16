@@ -37,7 +37,7 @@ class WaferHandler(DemoNode):
                     self.joint(name, self.joints[name])
             return
         if self.state == 'IDLE':
-            # The stock Harmonic plugin starts attached. Explicitly release it
+            # The stock Jetty plugin starts attached. Explicitly release it
             # while the wafer is still supported at the process output.
             if self.attachment('vacuum') != 'detached':
                 self.attach('vacuum', False)

@@ -1,4 +1,4 @@
-"""Launch the complete self-contained Harmonic demonstration."""
+"""Launch the complete self-contained Jetty demonstration."""
 import os
 from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
@@ -14,6 +14,12 @@ from launch_ros.actions import Node
 
 
 def launch_nodes(context):
+    distro = os.environ.get('ROS_DISTRO', '')
+    if distro and distro != 'lyrical':
+        raise RuntimeError(
+            f'This project targets ROS 2 Lyrical on Ubuntu 26.04; '
+            f'this shell has ROS_DISTRO={distro}. Open a fresh terminal and '
+            'source /opt/ros/lyrical/setup.bash and the Lyrical workspace.')
     share = Path(get_package_share_directory('wafer_transport_sim'))
     gui = LaunchConfiguration('gui').perform(context).lower() == 'true'
     config = LaunchConfiguration('config').perform(context)

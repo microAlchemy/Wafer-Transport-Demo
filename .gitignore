@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 *.egg-info/
 .venv/
+dist/
+build-lyrical/
+install-lyrical/
+log-lyrical/

@@ -2,7 +2,7 @@
 <package format="3">
   <name>wafer_transport_sim</name>
   <version>0.1.0</version>
-  <description>Coordinated wafer handling and visual station transport in Gazebo Harmonic.</description>
+  <description>Coordinated wafer handling and visual station transport in Gazebo Jetty.</description>
   <maintainer email="maintainer@example.com">Wafer Transport Demo maintainers</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_python</buildtool_depend>

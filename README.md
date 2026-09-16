@@ -1,60 +1,93 @@
 # Wafer handling and transport simulation
 
-A ROS 2 Jazzy / Gazebo Harmonic demonstration of two coordinated mechanisms:
+A ROS 2 Lyrical / Gazebo Jetty demonstration of two coordinated mechanisms:
 an X/Z vacuum gantry inside a cleanroom enclosure and a camera-guided mobile
 robot that delivers a wafer carrier to a QR-identified process station.
 
 **Validation status:** Python, controller, image-processing, and asset checks
 have been run on macOS. Gazebo physics, ROS/DDS integration, rendered-camera
 recognition, and GUI operation have **not** been run here: this development
-machine has no ROS or Gazebo installation. All 38 local tests pass, including
+machine has no ROS or Gazebo installation. All 42 local tests pass and cover
 QR decoding at projected camera angles, controller state sequences, and fault
-stops. A temporary-prefix package installation also succeeds. The Ubuntu verification runner below
-measures those behaviors and records failures instead of assuming success.
+stops, plus installer ordering and failure handling with mocked system commands.
+These checks do not validate Python 3.14, Lyrical, or Jetty at runtime. The Ubuntu
+verification runner below measures those behaviors and records failures instead
+of assuming success.
 
 ## Requirements and installation
 
-Use Ubuntu 24.04 (amd64 or arm64), Python 3.12, ROS 2 Jazzy, and Gazebo Harmonic
-(gz-sim 8). A desktop or VM needs working Ogre2/OpenGL rendering; headless cameras
+Use Ubuntu 26.04 (amd64 or arm64), Python 3.14, ROS 2 Lyrical, and Gazebo Jetty
+(gz-sim 10). A desktop or VM needs working Ogre2/OpenGL rendering; headless cameras
 still require an EGL-capable graphics driver. There is no Gazebo Classic dependency.
-The [official Gazebo pairing guide](https://gazebosim.org/docs/harmonic/ros_installation/)
-recommends Jazzy with Harmonic; `ros-jazzy-ros-gz` installs that pairing through ROS
+The [official Gazebo pairing guide](https://gazebosim.org/docs/jetty/ros_installation/)
+recommends Lyrical with Jetty; `ros-lyrical-ros-gz` installs that pairing through ROS
 vendor packages without requiring a separate OSRF repository.
 
-On a fresh Ubuntu installation, configure the ROS repository following the
-[official Jazzy instructions](https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html).
-The commands below use the maintained `ros2-apt-source` package:
+The project now targets the existing Ubuntu 26.04 ARM64 VM. Keep that VM;
+there is no need to install Ubuntu 24.04. The previous Jazzy installation commands
+have been replaced with Lyrical commands and the correct `resolute` repository.
+
+Copy the updated repository into the VM. From its root, run:
 
 ```bash
-sudo apt update
-sudo apt install -y locales software-properties-common curl python3
-sudo locale-gen en_US en_US.UTF-8
-sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
+bash wafer_transport_sim/scripts/install_ubuntu.sh
+```
+
+The installer checks Ubuntu version and architecture before changing packages,
+installs `curl` before downloading anything, configures the native ROS repository,
+installs dependencies, and initializes rosdep if needed. It stops on failure so
+an HTTP error cannot cascade into JSON and missing-package errors. Rerunning it
+is supported. Run it as your normal user; it uses `sudo` for system changes.
+
+For manual setup, these are the same commands. Paste the entire block into the VM
+terminal; the subshell stops at the first failure:
+
+```bash
+(
+set -euo pipefail
+source /etc/os-release
+if [[ "$ID" != ubuntu || "$VERSION_ID" != 26.04 || "$VERSION_CODENAME" != resolute ]]; then
+  echo 'These commands require Ubuntu 26.04 (Resolute).' >&2
+  exit 1
+fi
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates python3 locales software-properties-common
+sudo locale-gen en_US.UTF-8
+sudo update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
 sudo add-apt-repository -y universe
-ROS_APT_SOURCE_VERSION=$(curl -fsSL https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
-curl -fL -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.noble_all.deb"
-sudo dpkg -i /tmp/ros2-apt-source.deb
-sudo apt update
-sudo apt install -y \
-  ros-jazzy-desktop ros-jazzy-ros-gz ros-jazzy-cv-bridge \
-  ros-jazzy-rqt-graph ros-jazzy-rqt-image-view \
-  python3-colcon-common-extensions python3-rosdep python3-pytest \
-  python3-opencv python3-numpy python3-yaml python3-qrcode python3-pil
-source /opt/ros/jazzy/setup.bash
+wafer_setup_tmp=$(mktemp -d)
+trap 'rm -rf -- "$wafer_setup_tmp"' EXIT
+curl -fsSL --retry 3 -o "$wafer_setup_tmp/release.json" https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest
+wafer_ros_source_version=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tag_name"])' "$wafer_setup_tmp/release.json")
+curl -fL --retry 3 -o "$wafer_setup_tmp/ros2-apt-source.deb" "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${wafer_ros_source_version}/ros2-apt-source_${wafer_ros_source_version}.resolute_all.deb"
+sudo dpkg -i "$wafer_setup_tmp/ros2-apt-source.deb"
+sudo apt-get update
+sudo apt-get install -y \
+  ros-lyrical-desktop ros-lyrical-ros-gz ros-lyrical-cv-bridge \
+  ros-lyrical-rqt-graph ros-lyrical-rqt-image-view ros-dev-tools \
+  python3-pytest python3-opencv python3-numpy python3-yaml \
+  python3-qrcode python3-pil python3-setuptools
+)
 ```
 
-The manifest also declares rclpy, rcl_interfaces, ament_index_python, launch,
-launch_ros, geometry_msgs, sensor_msgs, nav_msgs, std_msgs, and rosgraph_msgs.
-Use Ubuntu's OpenCV and cv_bridge packages together; the simulation does not
-require a pip OpenCV installation in the ROS environment.
-
-Initialize rosdep once, if it has not already been initialized:
+Then initialize rosdep if you used manual setup (the installer already does this):
 
 ```bash
-sudo rosdep init
-rosdep update
+source /opt/ros/lyrical/setup.bash
+if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+  sudo rosdep init
+fi
+rosdep update --rosdistro lyrical
 ```
+
+The manifest declares rclpy, rcl_interfaces, ament_index_python, launch, launch_ros,
+geometry_msgs, sensor_msgs, nav_msgs, std_msgs, rosgraph_msgs, ros_gz_sim,
+ros_gz_bridge, and cv_bridge. `ros-dev-tools` supplies colcon and rosdep. Use the
+Ubuntu OpenCV and cv_bridge packages together; do not install pip OpenCV over the
+VM's ROS Python environment. Repository setup follows the
+[official Lyrical installation instructions](https://docs.ros.org/en/lyrical/Installation/Ubuntu-Install-Debs.html).
 
 ## Build and run
 
@@ -64,11 +97,18 @@ finds it without a separate `src/` directory.
 
 ```bash
 cd ~/Wafer-Transport-Demo
-source /opt/ros/jazzy/setup.bash
-rosdep install --from-paths wafer_transport_sim --ignore-src -r -y --rosdistro jazzy
+source /opt/ros/lyrical/setup.bash
+rosdep install --from-paths wafer_transport_sim --ignore-src -r -y --rosdistro lyrical
 colcon build --symlink-install --packages-select wafer_transport_sim
 source install/setup.bash
 ros2 launch wafer_transport_sim demo.launch.py
+```
+
+If this checkout was previously built under Jazzy, use a fresh build directory:
+
+```bash
+colcon --log-base log-lyrical build --build-base build-lyrical --install-base install-lyrical --symlink-install
+source install-lyrical/setup.bash
 ```
 
 The launch starts Gazebo, its world and all five included models, the bridge,
@@ -236,11 +276,11 @@ at the process station.
 
 The tray is an idealized, collision-free fork visual whose detachable joint
 carries the load. Shelf rails, carrier base/rim, wafer, chassis, wheels, and gantry
-have physical collision geometry. The fork simplification avoids Harmonic's
+have physical collision geometry. The fork simplification avoids Jetty's
 parent/child contact restriction on reattachment. The wafer stays inside its
 carrier through gravity, friction, and the protective rim rather than a second
 joint that could create a closed attachment chain. See
-[Harmonic detachable joints](https://gazebosim.org/api/sim/8/detachablejoints.html).
+[Jetty detachable joints](https://gazebosim.org/api/sim/10/detachablejoints.html).
 
 ### Timing and failures
 
@@ -285,8 +325,8 @@ motion deadlines. Relaunch after resolving a fault.
 | `/poses/{wafer,carrier}` | geometry_msgs/PoseStamped | Simulation model pose evidence |
 
 The explicit unidirectional bridge mappings are in `config/bridge.yaml`.
-Harmonic systems use `gz-sim-…-system` filenames and `gz::sim::systems::…` classes.
-The [Jazzy bridge mappings](https://github.com/gazebosim/ros_gz/blob/jazzy/ros_gz_bridge/README.md)
+Jetty systems use `gz-sim-…-system` filenames and `gz::sim::systems::…` classes.
+The [Lyrical bridge mappings](https://github.com/gazebosim/ros_gz/blob/lyrical/ros_gz_bridge/README.md)
 cover the message conversions used here.
 
 ```bash
@@ -391,8 +431,8 @@ inspection remains necessary to assess animation and presentation.
 
 | Symptom | Check |
 |---|---|
-| Package not found | Source both `/opt/ros/jazzy/setup.bash` and `install/setup.bash`. |
-| Missing plugin | Confirm `ros-jazzy-ros-gz` is installed and `gz sim --versions` includes version 8. |
+| Package not found | Source both `/opt/ros/lyrical/setup.bash` and `install/setup.bash`. |
+| Missing plugin | Confirm `ros-lyrical-ros-gz` is installed and `gz sim --versions` includes version 10. |
 | No images / startup timeout | Inspect Gazebo Ogre2/EGL errors, graphics acceleration, `/clock`, and both camera topics. |
 | Blank QR signs | Check installed `textures/`, `GZ_SIM_RESOURCE_PATH`, and PBR texture paths. |
 | QR never accepted | Inspect forward image, sign visibility, and `minimum_qr_side_pixels`; do not replace camera decoding with station coordinates. |
@@ -401,7 +441,8 @@ inspection remains necessary to assess animation and presentation.
 | Delivery timeout | Inspect carrier pose, tray feedback, shelf alignment, and wafer retention. |
 | Bridge topic absent | Compare `gz topic -l` with `ros2 topic list` and `bridge.yaml`. |
 | Slow VM | Enable 3D acceleration; allow more integration wall time with `--timeout`. Motion timeouts use simulation time. |
-| Apt dependencies conflict | Ensure Ubuntu `noble-updates` and `noble-backports` repositories are enabled, as described in the Jazzy installation guide. |
+| ROS packages not found | Run `install_ubuntu.sh` to add the Resolute ROS repository; installing curl alone does not add it. |
+| Apt dependencies conflict | Ensure Ubuntu `resolute-updates` and `resolute-backports` repositories are enabled. |
 
 This is a single-mission, scaled simulation. It has no vacuum fluid model, carrier
 lid actuation, IMU, obstacle avoidance, Nav2, automatic return trip, or physical
@@ -436,8 +477,8 @@ Wafer-Transport-Demo/
     │   ├── station_{a,b,c}_qr.png
     │   ├── station_{a,b,c}_label.png
     │   └── {enclosure,corridor}_label.png
-    ├── scripts/{generate_assets.py,verify_ubuntu.sh}
-    ├── test/{test_assets.py,test_core.py,test_vision.py,test_controllers.py}
+    ├── scripts/{install_ubuntu.sh,generate_assets.py,verify_ubuntu.sh}
+    ├── test/{test_assets.py,test_core.py,test_vision.py,test_controllers.py,test_installer.py}
     └── wafer_transport_sim/
         ├── __init__.py
         ├── common.py
