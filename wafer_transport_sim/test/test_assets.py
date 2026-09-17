@@ -77,7 +77,7 @@ def test_mobile_wand_and_door_geometry_and_bridge():
     joint = door.find(".//joint[@name='door_z']")
     assert joint.get('type') == 'prismatic'
     travel = float(joint.findtext('axis/limit/upper'))
-    assert travel == .52
+    assert float(joint.findtext('axis/limit/lower')) < 0. < .52 < travel
     # The open panel must clear the stowed robot, and must not slide into header.
     center_z = float(panel.findtext('pose').split()[2])
     thickness, _, height = map(float, panel.findtext('collision/geometry/box/size').split())
@@ -90,3 +90,89 @@ def test_mobile_wand_and_door_geometry_and_bridge():
     assert {'/actuators/door_z', '/door/joint_states', '/poses/transport_robot',
             '/actuators/wand_x', '/actuators/wand_z'} <= topics
     assert not any('gantry' in t for t in topics)
+
+
+def test_model_frame_names_and_joint_connections():
+    # Links and joints share the SDF frame namespace. XML parsing alone does
+    # not catch collisions, which prevent Gazebo from loading the world.
+    for path in ROOT.rglob('*.sdf'):
+        for model in ET.parse(path).findall('.//model'):
+            frames = [child.get('name') for child in model
+                      if child.tag in ('link', 'joint', 'frame', 'model')]
+            assert len(frames) == len(set(frames)), (path, frames)
+            links = {link.get('name') for link in model.findall('link')}
+            parents = {}
+            for joint in model.findall('joint'):
+                parent, child = joint.findtext('parent'), joint.findtext('child')
+                assert parent in links | {'world'}, (path, parent)
+                assert child in links, (path, child)
+                assert parent != child
+                assert child not in parents, (path, child)
+                parents[child] = parent
+            for child in parents:
+                visited = set()
+                while child in parents:
+                    assert child not in visited, (path, child)
+                    visited.add(child)
+                    child = parents[child]
+
+
+def test_door_full_stroke_clears_fixed_collision_geometry():
+    world = ET.parse(ROOT / 'worlds/wafer_transport.sdf')
+    door = ET.parse(ROOT / 'models/guillotine_door/model.sdf')
+    origin = [float(v) for v in world.findtext(
+        ".//include[name='guillotine_door']/pose").split()[:3]]
+
+    def bounds(link, collision, offset):
+        link_pose = [float(v) for v in link.findtext('pose', '0 0 0 0 0 0').split()]
+        local = [float(v) for v in collision.findtext('pose', '0 0 0 0 0 0').split()]
+        assert link_pose[3:] == local[3:] == [0., 0., 0.]
+        size = [float(v) for v in collision.findtext('geometry/box/size').split()]
+        center = [offset[i] + link_pose[i] + local[i] for i in range(3)]
+        return ([center[i] - size[i]/2 for i in range(3)],
+                [center[i] + size[i]/2 for i in range(3)])
+
+    obstacles = []
+    room = world.find(".//model[@name='cleanroom']")
+    for link in room.findall('link'):
+        for collision in link.findall('collision'):
+            obstacles.append((collision.get('name'), bounds(link, collision, [0., 0., 0.])))
+    frame = door.find(".//link[@name='frame']")
+    for collision in frame.findall('collision'):
+        obstacles.append((collision.get('name'), bounds(frame, collision, origin)))
+    panel = door.find(".//link[@name='panel']")
+    travel = float(door.findtext(".//joint[@name='door_z']/axis/limit/upper"))
+    lower = float(door.findtext(".//joint[@name='door_z']/axis/limit/lower"))
+    for collision in panel.findall('collision'):
+        low, high = bounds(panel, collision, origin)
+        low[2] += lower
+        high[2] += travel
+        for name, (fixed_low, fixed_high) in obstacles:
+            overlap = all(min(high[i], fixed_high[i]) - max(low[i], fixed_low[i]) > 1e-9
+                          for i in range(3))
+            assert not overlap, f'{collision.get("name")} hits {name} during door travel'
+
+
+def test_door_force_drive_contract():
+    door = ET.parse(ROOT / 'models/guillotine_door/model.sdf')
+    controller = door.find(".//plugin[@name='gz::sim::systems::JointPositionController']")
+    assert controller.findtext('joint_name') == 'door_z'
+    assert controller.findtext('use_velocity_commands') == 'false'
+    mass = float(door.findtext(".//link[@name='panel']/inertial/mass"))
+    assert abs(float(controller.findtext('cmd_offset')) - mass * 9.81) < 1e-9
+    assert float(controller.findtext('p_gain')) > 0
+    assert float(controller.findtext('d_gain')) > 0
+    assert float(controller.findtext('cmd_max')) > mass * 9.81
+    topics = {m['ros_topic_name']: m for m in yaml.safe_load((ROOT / 'config/bridge.yaml').read_text())}
+    assert topics['/actuators/door_z']['direction'] == 'ROS_TO_GZ'
+
+
+def test_room_tape_connects_corridor_and_pickup_camera():
+    world = ET.parse(ROOT / 'worlds/wafer_transport.sdf')
+    tape = world.find(".//visual[@name='room_tape']")
+    x, y, z, *_ = map(float, tape.findtext('pose').split())
+    length, width, _ = map(float, tape.findtext('geometry/box/size').split())
+    assert x-length/2 < .65-.13 < .9094 < 1.025 < x+length/2
+    assert y == .12 and width == .018 and 0 < z < .001
+    assert tape.findtext('material/diffuse') == '0.005 0.005 0.005 1'
+    assert world.find(".//collision[@name='room_tape_collision']") is None

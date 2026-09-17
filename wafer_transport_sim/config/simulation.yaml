@@ -4,9 +4,14 @@
     sensor_timeout: 1.0
     state_timeout: 30.0
 
+wafer_handler:
+  ros__parameters:
+    room_speed: 0.06
+    turn_speed: 0.55
+    door_speed: 0.10
 line_follower:
   ros__parameters:
-    linear_speed: 0.035
+    linear_speed: 0.06
     kp: 0.004
     max_angular_speed: 0.6
     threshold: 55

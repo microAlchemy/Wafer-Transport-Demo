@@ -17,6 +17,7 @@ class TransportController(DemoNode):
         self.param('position_tolerance', 0.01)
         self.param('mission_timeout', 120.0)
         self.watch('/carrier_ready', Bool, LATCHED)
+        self.watch('/cleanroom/exited', Bool, LATCHED)
         self.watch('/system/transport_enable', Bool, LATCHED)
         self.watch('/system/fault', String, LATCHED)
         self.watch('/system/start', Bool, LATCHED)
@@ -85,9 +86,14 @@ class TransportController(DemoNode):
                 self.fault('Mission timeout')
         if self.state in MOVING:
             required = ['/odom', '/line/cmd_vel', '/line/valid', '/qr/healthy',
-                        '/poses/carrier', '/poses/wafer']
-            if not self.fresh(*required) or not self.value('/line/valid') or not self.value('/qr/healthy'):
-                self.fault('Required camera, line, odometry, or pose feedback lost')
+                        '/poses/carrier', '/poses/wafer', '/poses/transport_robot']
+            issues = self.feedback_issues(*required)
+            if not self.value('/line/valid'):
+                issues.append('/line/valid: corridor stripe lost')
+            if not self.value('/qr/healthy'):
+                issues.append('/qr/healthy: forward image processing failed')
+            if issues:
+                self.fault('Transport feedback failure: ' + '; '.join(issues))
             elif (not self.carrier_on_robot() or self.attachment('carrier') != 'attached' or
                   not placed(self.position('wafer'),
                              tuple(v + d for v, d in zip(self.position('carrier'), (0, 0, .006))),
@@ -149,7 +155,7 @@ class TransportController(DemoNode):
                 else:
                     self.attach('carrier', True)
                     self.initialized = self.attachment('carrier') == 'attached'
-            if (self.initialized and self.value('/carrier_ready') and
+            if (self.initialized and self.value('/carrier_ready') and self.value('/cleanroom/exited') and
                     self.value('/system/transport_enable')):
                 self.change('VERIFY_CARRIER', '[Transport] Carrier detected')
         elif s == 'VERIFY_CARRIER':

@@ -113,7 +113,10 @@ def room_feedback(ros, node, x=.65, heading=math.pi/2):
     ros.emit('/odom', odom)
     ros.emit('/poses/transport_robot', pose(x, .12, 0., heading+math.pi/2))
     ros.emit('/poses/carrier', pose(x, .12, .154))
-    ros.emit('/line/valid', Scalar(False))  # No stripe inside the room is expected.
+    ros.emit('/line/valid', Scalar(True))
+    line = Twist()
+    line.linear.x = .035
+    ros.emit('/line/cmd_vel', line)
     ros.emit('/line/healthy', Scalar(True))
     ros.emit('/qr/healthy', Scalar(True))
     ros.emit('/attachments/carrier/state', Scalar('attached'))
@@ -139,14 +142,14 @@ def test_wafer_handler_full_sequence_and_readiness(ros):
     assert node.state == 'HOME'
     history = [node.state]
     entered_room = False
-    for _ in range(100):
+    for _ in range(1600):
         ros.time += .05
         if node.state == 'ENTER_ROOM':
             entered_room = True
         elif node.state == 'EXIT_ROOM':
             entered_room = False
         rx = .65 if entered_room else 1.025
-        heading = 0. if node.state in ('HOME', 'OPEN_ENTRY', 'TURN_OUT', 'CLOSE_EXIT', 'TRANSFER_COMPLETE') else math.pi/2
+        heading = 0. if node.state in ('HOME', 'OPEN_ENTRY', 'TURN_OUT', 'CLOSE_EXIT', 'VERIFY_EXIT', 'TRANSFER_COMPLETE') else math.pi/2
         room_feedback(ros, node, rx, heading)
         wx = .4 if node.state in ros.wafer_handler.STEPS[:10] else rx
         wz = .155 + node.joints.get('wand_z', 0.) + .14
@@ -270,6 +273,9 @@ def test_robot_waits_for_both_readiness_and_manager_enable(ros):
     ros.emit('/carrier_ready', Scalar(True))
     ros.emit('/system/transport_enable', Scalar(True))
     node.tick()
+    assert node.state == 'WAIT_FOR_CARRIER'  # Loaded alone does not prove exit.
+    ros.emit('/cleanroom/exited', Scalar(True))
+    node.tick()
     assert node.state == 'VERIFY_CARRIER'
 
 
@@ -390,6 +396,9 @@ def test_manager_gates_start_transport_and_completion(ros):
     assert '/system/transport_enable' not in ros.outputs
     ros.emit('/wafer_handler/state', Scalar('TRANSFER_COMPLETE'))
     node.tick()
+    assert node.state == 'HANDLING_WAFER'
+    ros.emit('/cleanroom/exited', Scalar(True))
+    node.tick()
     assert node.state == 'TRANSPORTING'
     assert ros.outputs['/system/transport_enable'].data
     ros.emit('/carrier_delivered', Scalar(True))
@@ -437,7 +446,7 @@ def test_stuck_door_never_authorizes_entry(ros):
     ros.emit('/poses/wafer', pose(.4, .12, .155))
     node.tick()
     assert node.state == 'OPEN_ENTRY'
-    assert ros.outputs['/actuators/door_z'].data == .52
+    assert 0. < ros.outputs['/actuators/door_z'].data < .52
     assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
     assert ros.outputs['/cleanroom/cmd_vel'].angular.z == 0.
     ros.time += 31
@@ -456,3 +465,210 @@ def test_extended_wand_prevents_robot_passage(ros):
     node.tick()
     assert node.state == 'FAULT'
     assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+
+
+def test_startup_reports_missing_feedback_and_retains_interlocks(ros):
+    node = ros.system_manager.SystemManager()
+    ros.time = 0.
+    node.tick()
+    report = ros.outputs['/system/readiness'].data
+    assert '/clock: no simulation time' in report
+    assert '/door/joint_states: no messages' in report
+    assert '/poses/transport_robot: no messages' in report
+    assert 'waiting for detached acknowledgement' in report
+    assert '/system/start' not in ros.outputs
+    ros.time = 1.
+    ros.emit('/line/valid', Scalar(False))
+    ros.emit('/door/closed', Scalar(False))
+    ros.emit('/carrier_present', Scalar(False))
+    node.tick()
+    report = ros.outputs['/system/readiness'].data
+    assert 'camera has not found the floor stripe' in report
+    assert 'door joint has not confirmed closure' in report
+    assert 'handshake incomplete' in report
+    ros.time += 1.1
+    node.tick()
+    assert '/line/valid: stale' in ros.outputs['/system/readiness'].data
+    assert '/system/start' not in ros.outputs
+
+
+def test_startup_timeout_preserves_specific_missing_topic(ros):
+    node = ros.system_manager.SystemManager()
+    node.wall_started -= 91.
+    node.tick()
+    assert node.state == 'FAULT'
+    assert '/poses/transport_robot: no messages' in ros.outputs['/system/fault'].data
+    assert '/system/start' not in ros.outputs
+
+
+def test_door_ramp_is_bounded_and_cannot_replace_position_feedback(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'OPEN_ENTRY')
+    last = 0.
+    for _ in range(300):
+        ros.time += .05
+        room_feedback(ros, node, x=1.025, heading=0.)
+        ros.emit('/poses/wafer', pose(.4, .12, .155))
+        # Simulate a jam: the setpoint advances, but actual position stays zero.
+        ros.emit('/door/joint_states', NS(name=['door_z'], position=[0.]))
+        node.tick()
+        target = ros.outputs['/actuators/door_z'].data
+        assert 0. <= target <= .52
+        assert 0. <= target - last <= .005 + 1e-9
+        assert node.state == 'OPEN_ENTRY'
+        assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+        last = target
+    assert last == pytest.approx(.52)
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'TURN_IN'
+    set_handler_state(ros, node, 'CLOSE_ENTRY')
+    ros.time += .05
+    room_feedback(ros, node)
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'CLOSE_ENTRY'
+    assert ros.outputs['/actuators/door_z'].data == pytest.approx(.515)
+
+
+@pytest.mark.parametrize('angular', [-.12, .12])
+def test_room_entry_steers_from_camera_candidate(ros, angular):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'ENTER_ROOM')
+    room_feedback(ros, node, x=.90)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    line = Twist()
+    line.linear.x, line.angular.z = .03, angular
+    ros.emit('/line/cmd_vel', line)
+    node.tick()
+    assert node.state == 'ENTER_ROOM'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == .03
+    assert ros.outputs['/cleanroom/cmd_vel'].angular.z == angular
+
+
+@pytest.mark.parametrize('failure', ['lost_tape', 'stale_command', 'bad_image'])
+def test_room_tape_failure_stops_before_pickup(ros, failure):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'ENTER_ROOM')
+    room_feedback(ros, node, x=.90)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    if failure == 'lost_tape':
+        ros.emit('/line/valid', Scalar(False))
+    elif failure == 'stale_command':
+        node.received['/line/cmd_vel'] -= 1.1
+    else:
+        ros.emit('/line/healthy', Scalar(False))
+    node.tick()
+    assert node.state == 'FAULT'
+    cmd = ros.outputs['/cleanroom/cmd_vel']
+    assert cmd.linear.x == cmd.angular.z == 0.
+    assert not ros.outputs['/carrier_ready'].data
+    assert '/line/' in ros.outputs['/system/fault'].data
+    assert '/attachments/vacuum/attach' not in ros.outputs
+
+
+def test_stationary_door_does_not_depend_on_camera_processing(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'OPEN_ENTRY')
+    room_feedback(ros, node, x=1.025, heading=0.)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    for topic in ('/line/healthy', '/line/valid', '/line/cmd_vel'):
+        node.received.pop(topic, None)
+    ros.emit('/qr/healthy', Scalar(False))
+    node.tick()
+    assert node.state == 'OPEN_ENTRY'
+    assert ros.outputs['/actuators/door_z'].data > 0.
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+    # Door and robot feedback remain mandatory even while stationary.
+    node.received['/door/joint_states'] -= 1.1
+    node.tick()
+    assert node.state == 'FAULT'
+    assert '/door/joint_states: stale' in ros.outputs['/system/fault'].data
+
+
+def test_turn_in_waits_for_tape_before_entering_room(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'TURN_IN')
+    room_feedback(ros, node, x=1.025)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    ros.emit('/line/valid', Scalar(False))
+    node.tick()
+    assert node.state == 'TURN_IN'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+    assert ros.outputs['/cleanroom/cmd_vel'].angular.z == 0.
+    ros.emit('/line/valid', Scalar(True))
+    node.tick()
+    assert node.state == 'ENTER_ROOM'
+
+
+@pytest.mark.parametrize('lateral,heading_error', [(-.012, -.15), (.012, .15), (0., 0.)])
+def test_loaded_robot_realigns_exits_and_closes_door_with_odometry_bias(ros, lateral, heading_error):
+    """Kinematic feedback regression; does not substitute for Gazebo dynamics."""
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'ALIGN_EXIT')
+    x, y, heading = .65, .12 + lateral, math.pi + heading_error
+    previous = Twist()
+    history = [node.state]
+    started = ros.time
+    for _ in range(600):
+        ros.time += .05
+        x += previous.linear.x * math.cos(heading) * .05
+        y += previous.linear.x * math.sin(heading) * .05
+        heading += previous.angular.z * .05
+        room_feedback(ros, node, x=x)
+        odom = node.values['/odom']
+        # Wheel heading disagrees with world pose by more than the old .10 guard.
+        biased = heading - math.pi/2 + .25
+        odom.pose.pose.orientation.z = math.sin(biased/2)
+        odom.pose.pose.orientation.w = math.cos(biased/2)
+        odom.twist.twist = previous
+        ros.emit('/odom', odom)
+        ros.emit('/poses/transport_robot', pose(x, y, 0., heading))
+        ros.emit('/poses/carrier', pose(x, y, .154, heading))
+        ros.emit('/poses/wafer', pose(x, y, .159, heading))
+        ros.emit('/attachments/vacuum/state', Scalar('detached'))
+        door = ros.outputs.get('/actuators/door_z', Scalar(.52)).data
+        ros.emit('/door/joint_states', NS(name=['door_z'], position=[door]))
+        node.tick()
+        assert node.state != 'FAULT', ros.outputs.get('/system/fault')
+        if node.state != history[-1]:
+            history.append(node.state)
+        previous = ros.outputs['/cleanroom/cmd_vel']
+        if '/actuators/door_z' in ros.outputs and ros.outputs['/actuators/door_z'].data < .52:
+            assert x > 1.0 and node.door_clear()
+        if node.state == 'TRANSFER_COMPLETE':
+            break
+        assert not ros.outputs['/carrier_ready'].data
+        assert not ros.outputs['/cleanroom/exited'].data
+    assert history == ['ALIGN_EXIT', 'EXIT_ROOM', 'TURN_OUT', 'CLOSE_EXIT', 'VERIFY_EXIT', 'TRANSFER_COMPLETE']
+    assert ros.time - started < 25.
+    assert node.outside_room()
+    assert ros.outputs['/carrier_ready'].data and ros.outputs['/cleanroom/exited'].data
+    assert ros.outputs['/door/closed'].data
+
+
+def test_exit_heading_error_stops_translation_for_alignment_instead_of_faulting(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'EXIT_ROOM')
+    room_feedback(ros, node)
+    ros.emit('/poses/transport_robot', pose(.65, .12, 0., math.pi+.15))
+    ros.emit('/poses/wafer', pose(.65, .12, .159))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'EXIT_ROOM'
+    cmd = ros.outputs['/cleanroom/cmd_vel']
+    assert cmd.linear.x == 0. and cmd.angular.z < 0.
+
+
+def test_exit_flag_requires_actual_outside_pose(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'VERIFY_EXIT')
+    room_feedback(ros, node, x=.65, heading=0.)
+    ros.emit('/poses/wafer', pose(.65, .12, .159))
+    node.tick()
+    assert node.state == 'VERIFY_EXIT'
+    assert not ros.outputs['/cleanroom/exited'].data
+    assert not ros.outputs['/carrier_ready'].data

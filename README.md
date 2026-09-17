@@ -1,16 +1,19 @@
 # Wafer handling and transport simulation
 
 A ROS 2 Lyrical / Gazebo Jetty demonstration of a mobile wafer-handling robot.
-The robot enters a Class 100 room through a powered guillotine door, uses its
-onboard telescoping vacuum wand to load its carrier, and returns to the corridor
-to deliver that carrier to a camera-recognized QR station. There is no stationary gantry.
+The robot enters a Class 100 room through a powered guillotine door and follows
+black floor tape to the pickup position. Its onboard telescoping vacuum wand
+loads the carrier. The robot then returns to the corridor and delivers the
+carrier to a camera-recognized QR station. There is no stationary gantry.
 
 **Validation status:** Python, controller, image-processing, and asset checks
 have been run on macOS. Gazebo physics, ROS/DDS integration, rendered-camera
 recognition, and GUI operation have **not** been run here: this development
-machine has no ROS or Gazebo installation. All 53 local tests pass and cover
-QR decoding at projected camera angles, door clearance, mobile pickup, command
-arbitration and fault stops, plus installer ordering and failure handling with mocked system commands.
+machine has no ROS or Gazebo installation. All 84 local tests pass and cover
+QR decoding at projected camera angles, door clearance, mobile pickup, exit
+recovery with biased wheel odometry, command
+arbitration, projected visibility of the room tape, and fault stops, plus installer
+ordering and failure handling with mocked system commands.
 These checks do not validate Python 3.14, Lyrical, or Jetty at runtime. The Ubuntu
 verification runner below measures those behaviors and records failures instead
 of assuming success.
@@ -134,7 +137,14 @@ load exactly once; there is no second spawning path or external asset download.
 
 Gazebo starts running automatically. The manager waits for clock, cameras,
 odometry, joint feedback, model poses, and attachment initialization before
-starting the visible sequence. Ctrl-C stops the launch. Relaunch for another
+starting the visible sequence. While waiting, it prints `[Startup] Waiting for:`
+with specific missing topics or unsatisfied checks every two wall-clock seconds.
+During pickup, `[Pickup]` reports the handler state, measured actuator positions,
+the ROS door target, and tape detection. The previous command echo reported
+missing data despite measured motion, so it has been removed; joint feedback
+remains the evidence that the door is moving.
+The latched `/system/readiness` topic carries the startup details.
+Ctrl-C stops the launch. Relaunch for another
 mission; in-place world reset is not supported.
 
 ```bash
@@ -152,7 +162,16 @@ ros2 param set /transport_controller destination_station STATION_C
 ```
 
 Destination defaults to `STATION_C` in the YAML file. The launch argument, if
-provided, overrides it. The controller validates and latches the destination in
+provided, overrides it.
+
+Cruising speed is 0.06 m/s, turning speed is capped at 0.55 rad/s, and wand/tray
+joints are capped at 0.10 m/s. The door target ramps at 0.10 m/s. Speeds decrease
+near stop positions; feedback and low-velocity checks still gate every handoff.
+The `wafer_handler` YAML section exposes `room_speed`, `turn_speed`, and
+`door_speed`; `line_follower.linear_speed` sets the corridor cruise speed.
+Precision docking remains limited to 0.018 m/s.
+
+The controller validates and latches the destination in
 `READ_DESTINATION`; later changes are rejected with a reason. Unknown station IDs
 are rejected. Structural parameters such as station positions should be edited
 in the configuration before launch, with corresponding model changes.
@@ -168,7 +187,10 @@ World X spans the enclosure width, 0–0.9144 m, followed by the corridor,
 0.9144–1.2192 m. World Y spans 0–1.2192 m along both regions. Their combined floor
 is 1.2192 m square. The enclosure has transparent front/dividing panels, a loading
 robot doorway, structural posts, dimensional signs, and simple process equipment.
-The door panel slides vertically through 0.52 m. Its guides and offset fixed
+The door panel slides vertically through 0.52 m. Its position target ramps at
+0.10 m/s (about 5.2 simulated seconds per full stroke). A force-based position
+controller balances panel weight with a 3.924 N offset and limits drive force
+to ±20 N. The operating positions lie inside the mechanical joint limits. Its guides and offset fixed
 header leave a passage for the robot with its wand stowed. “Class 100” is a room
 label and operating sequence; air filtration and particle counts are not modeled.
 The corridor is open for viewing; its designated height is 1.2192 m.
@@ -220,13 +242,20 @@ Pickup, door actuation, and fault states command zero wheel velocity.
 IDLE → HOME → OPEN_ENTRY → TURN_IN → ENTER_ROOM → CLOSE_ENTRY
 → MOVE_TO_WAFER → LOWER_WAND → VACUUM_ON → VERIFY_VACUUM
 → LIFT_PICKUP → MOVE_TO_BOX → LOWER → VACUUM_OFF → LIFT_RETRACT
-→ OPEN_EXIT → EXIT_ROOM → TURN_OUT → CLOSE_EXIT → TRANSFER_COMPLETE
+→ OPEN_EXIT → ALIGN_EXIT → EXIT_ROOM → TURN_OUT → CLOSE_EXIT
+→ VERIFY_EXIT → TRANSFER_COMPLETE
 ```
+
+An 18 mm black tape branch connects the corridor to the pickup approach through
+the doorway, along world Y = 0.12 m and X = 0.50–1.08 m. It remains under the
+forward-offset downward camera when the robot stops at X = 0.65 m.
 
 The carrier attachment is initialized while supported on the loading rails.
 `HOME` raises the tray 4 mm clear of those rails and checks the wand is stowed.
 The guillotine door must report its fully open position before wheel motion.
-The robot turns to face −world X and enters to `(0.65, 0.12)`. After it stops
+The robot turns to face −world X, stops to acquire the tape, then uses downward-camera
+centroid steering to follow it to `(0.65, 0.12)`. Pose feedback limits speed near
+the stop and checks doorway clearance; it does not provide entry steering. After it stops
 fully inside, the door closes; pickup requires measured closure and zero motion.
 
 The robot's wand has a Z lift and three nested horizontal prismatic stages
@@ -240,11 +269,18 @@ The stock detachable-joint plugin starts attached, so initialization releases th
 wafer onto the process output before motion. A small wand/wafer gap avoids
 reattachment while those bodies are touching. Pickup joins the wafer to the wand
 at their current relative pose; measured lift verifies the wafer actually rises.
-The speed-limited joint control follows the
+Wand and tray joints use speed-limited velocity control; the door uses force-based
+PD control with gravity compensation and a ramped target. These use the
 [Jetty JointPositionController interface](https://gazebosim.org/api/sim/10/classgz_1_1sim_1_1systems_1_1JointPositionController.html).
 
-After loading, the door reopens, the robot reverses out to its initial position,
-turns back toward the corridor, and waits for the door to close behind it.
+After loading, the door reopens and `ALIGN_EXIT` corrects heading before reverse
+motion. Reverse guidance uses the robot's world pose and a lookahead point on the
+room centerline; it corrects recoverable heading drift while stopped instead of
+faulting at the first exit command. The robot backs into the corridor, turns to
+face +Y, and verifies its entire footprint is clear before closing the door.
+`VERIFY_EXIT` confirms the outside position, stowed wand, stopped wheels, and
+closed door before publishing `/cleanroom/exited=true`. The manager and transport
+controller both require this flag before enabling station travel.
 `/carrier_ready` becomes true only after this entire sequence. The manager then
 enables station transport. During closure, the robot must be stopped and its
 oriented footprint, including wand extension, must clear the door plane. An
@@ -262,14 +298,17 @@ error = line_center_x - image_center_x
 angular_z = clamp(-kp * error, -max_angular_speed, max_angular_speed)
 ```
 
-Defaults are 0.035 m/s, `kp=0.004`, angular limit 0.6 rad/s, threshold 55, and crop
+Defaults are 0.06 m/s, `kp=0.004`, angular limit 0.6 rad/s, threshold 55, and crop
 ratio 0.35. Missing images, an all-dark image, or no valid stripe cannot produce a
 valid forward command. Corridor travel follows the camera stripe; the short
-entry and reverse-exit maneuvers use known room geometry, robot pose, and odometry.
-Inside the room a missing stripe is expected, but missing or unreadable camera
-images still fault the mission.
+turning and reverse-exit maneuvers use known room geometry and world pose for
+steering; wheel odometry supplies measured speed. This keeps heading calculations
+in one coordinate frame during room maneuvers.
+Forward entry follows the room tape using the same image-processing pipeline as
+the corridor. Lost tape or stale image/steering feedback stops entry and faults
+the mission. Turns wait for tape reacquisition before starting entry.
 
-The forward camera supplies 960 × 720 RGB images at 20 Hz. OpenCV
+The forward camera supplies 960 × 720 RGB images at 8 Hz; the downward camera remains at 20 Hz. OpenCV
 `QRCodeDetector.detectAndDecodeMulti` reads the genuine textured QR panels.
 Three consecutive detections and a minimum 70-pixel decoded-square side are
 required. The size gate excludes distant, poorly resolved signs; each station
@@ -333,6 +372,13 @@ Attachment state is event-based, so its last acknowledgement is retained rather
 than treated as a periodic sensor heartbeat; model poses provide continuing
 retention checks.
 
+During stationary door and wand operations, required feedback is joint state,
+odometry, and object/robot pose; camera delays do not cancel those operations.
+Wheel motion requires fresh downward-camera health, and forward room entry also
+requires a valid tape detection and fresh steering command. Corridor travel
+additionally requires forward-camera QR health. Timeout errors identify the
+missing topic rather than reporting a generic sensor failure.
+
 Stale required feedback, missing stripe, lost payload, attachment failure, missed
 destination, and move/delivery timeouts enter `FAULT`, publish `/system/fault`,
 command zero wheel velocity, and hold available actuator positions. Startup has a
@@ -351,6 +397,7 @@ motion deadlines. Relaunch after resolving a fault.
 | `/camera/image_raw` | sensor_msgs/Image | Forward QR camera |
 | `/down_camera/image_raw` | sensor_msgs/Image | Path camera |
 | `/detected_station` | std_msgs/String | Confirmed QR payload |
+| `/cleanroom/exited` | std_msgs/Bool | Loaded robot verified outside with door closed |
 | `/carrier_ready` | std_msgs/Bool | Loaded, exited, wand stowed, door closed |
 | `/carrier_present` | std_msgs/Bool | Carrier attachment acknowledged |
 | `/carrier_delivered` | std_msgs/Bool | Supported delivery verified |
@@ -411,10 +458,12 @@ Representative application messages, excluding ROS/Gazebo startup prefixes:
 [WaferHandler] VACUUM_OFF
 [WaferHandler] LIFT_RETRACT
 [WaferHandler] OPEN_EXIT
+[WaferHandler] ALIGN_EXIT — aligning before reverse
 [WaferHandler] EXIT_ROOM
 [WaferHandler] TURN_OUT
 [WaferHandler] CLOSE_EXIT
-[WaferHandler] TRANSFER_COMPLETE
+[WaferHandler] VERIFY_EXIT — robot outside Class 100 room
+[WaferHandler] TRANSFER_COMPLETE — exit verified; ready for corridor transport
 [Transport] Carrier detected
 [Transport] Destination: STATION_C
 [Transport] Beginning transport; following corridor
@@ -433,7 +482,7 @@ TRANSPORT COMPLETE
 ```
 
 Visually, the empty carrier lifts clear of its supports, the door rises, and the
-robot turns and drives into the room. The door closes. The robot's mounted wand
+robot turns, acquires the black tape, and follows it into the room. The door closes. The robot's mounted wand
 extends to the wafer, picks it up, and places it inside the onboard carrier. The
 door rises again, the robot backs out and turns toward the line, and the door
 closes. The robot follows the stripe past non-target stations, slows at its
@@ -460,10 +509,12 @@ bash wafer_transport_sim/scripts/verify_ubuntu.sh
 
 It validates SDF with `gz sdf -k`, launches separate A/B/C missions, then injects
 missing images, lost stripe, blocked vacuum attachment, absent target QR, and
-a door with its command bridge disabled.
+a door with its command bridge disabled. Room-entry cases separately erase the
+tape image and stop downward-camera delivery; both must stop the robot before pickup.
 Each scenario starts and stops its own headless launch. Reports and simulator logs
 are written under `log/integration/`. The nominal runs require decoded camera QR,
-ordered entry/pickup/exit states, door interlocks, authorized motion only,
+ordered entry/pickup/exit states, the actual robot pose outside the room,
+door interlocks, authorized motion only,
 ≤10 mm docking error, and the
 carrier and wafer still at the shelf after completion. Failure runs require a
 fault, fresh zero commands, and no false delivery success.
@@ -472,6 +523,7 @@ fault, fresh zero commands, and no false delivery success.
 # One scenario; this command launches its own simulator.
 ros2 run wafer_transport_sim integration_check --destination STATION_C
 ros2 run wafer_transport_sim integration_check --scenario failed_pickup
+ros2 run wafer_transport_sim integration_check --scenario room_lost_line
 ```
 
 The image relay used for failure injection exists only in the integration runner.
@@ -495,7 +547,7 @@ inspection remains necessary to assess animation and presentation.
 | QR never accepted | Inspect forward image, sign visibility, and `minimum_qr_side_pixels`; do not replace camera decoding with station coordinates. |
 | Lost line | Inspect downward image; tune threshold/crop and lighting. Blank/dark frames intentionally stop transport. |
 | Vacuum timeout | Inspect `/attachments/vacuum/state`, `/poses/wafer`, and joint feedback. No motion state may be skipped to bypass a fault. |
-| Door or entry fault | Inspect `/door/joint_states`, `/poses/transport_robot`, `/robot/joint_states`, and `/system/fault`. Keep the doorway clear; do not bypass its interlocks. |
+| Door or entry fault | Inspect `[Pickup]`: measured `door_z` should follow `door_target`. Before entry, `tape_detected` must become true. Sensor faults now name the exact missing/stale topic. Keep the doorway clear; do not bypass its interlocks. |
 | Delivery timeout | Inspect carrier pose, tray feedback, shelf alignment, and wafer retention. |
 | Bridge topic absent | Compare `gz topic -l` with `ros2 topic list` and `bridge.yaml`. |
 | Slow VM | Enable 3D acceleration; allow more integration wall time with `--timeout`. Motion timeouts use simulation time. |

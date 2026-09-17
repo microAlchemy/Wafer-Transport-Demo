@@ -261,7 +261,7 @@
           </material>
         </visual>
         <visual name="frame_0.02">
-          <pose>0.02 0.025 0.6096 0 0 0</pose>
+          <pose>0.02 0.0125 0.6096 0 0 0</pose>
           <geometry>
             <box>
               <size>0.025 0.025 1.2192</size>
@@ -273,7 +273,7 @@
           </material>
         </visual>
         <collision name="frame_0.02_collision">
-          <pose>0.02 0.025 0.6096 0 0 0</pose>
+          <pose>0.02 0.0125 0.6096 0 0 0</pose>
           <geometry>
             <box>
               <size>0.025 0.025 1.2192</size>
@@ -288,8 +288,8 @@
             </friction>
           </surface>
         </collision>
-        <visual name="frame_0.895">
-          <pose>0.895 0.025 0.6096 0 0 0</pose>
+        <visual name="frame_0.87">
+          <pose>0.87 0.0125 0.6096 0 0 0</pose>
           <geometry>
             <box>
               <size>0.025 0.025 1.2192</size>
@@ -300,8 +300,8 @@
             <diffuse>0.65 0.72 0.78 1</diffuse>
           </material>
         </visual>
-        <collision name="frame_0.895_collision">
-          <pose>0.895 0.025 0.6096 0 0 0</pose>
+        <collision name="frame_0.87_collision">
+          <pose>0.87 0.0125 0.6096 0 0 0</pose>
           <geometry>
             <box>
               <size>0.025 0.025 1.2192</size>
@@ -377,6 +377,18 @@
           <geometry>
             <box>
               <size>0.018 1.19 0.0005</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.005 0.005 0.005 1</ambient>
+            <diffuse>0.005 0.005 0.005 1</diffuse>
+          </material>
+        </visual>
+        <visual name="room_tape">
+          <pose>0.79 0.12 0.0003 0 0 0</pose>
+          <geometry>
+            <box>
+              <size>0.58 0.018 0.0005</size>
             </box>
           </geometry>
           <material>

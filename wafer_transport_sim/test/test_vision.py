@@ -63,3 +63,33 @@ def test_qr_under_configured_camera_projection(letter, robot_y, expected):
     projected = cv2.warpPerspective(qr, matrix, (960, 720), borderValue=(230, 230, 230))
     found = 'STATION_' + letter.upper() in station_codes(cv2.QRCodeDetector(), projected)
     assert found == expected
+
+
+@pytest.mark.parametrize('robot_x', [1.025, .90, .78, .65])
+@pytest.mark.parametrize('lateral_error', [-.008, 0., .008])
+def test_room_tape_visible_to_downward_camera_through_pickup(robot_x, lateral_error):
+    """Project the committed tape into the camera; this is not a renderer test."""
+    import math
+    import xml.etree.ElementTree as ET
+    world = ET.parse(ROOT / 'worlds/wafer_transport.sdf')
+    tape = world.find(".//visual[@name='room_tape']")
+    tx, ty, tz, *_ = map(float, tape.findtext('pose').split())
+    length, width, _ = map(float, tape.findtext('geometry/box/size').split())
+    robot = ET.parse(ROOT / 'models/transport_robot/model.sdf')
+    body = robot.find(".//link[@name='base_link']")
+    camera = body.find("sensor[@name='down_camera']")
+    cx, cy, cz, roll, pitch, _ = map(float, camera.findtext('pose').split())
+    assert roll == 0. and pitch == pytest.approx(math.pi/2)
+    z = float(body.findtext('pose').split()[2]) + cz - tz
+    w, h = [int(camera.findtext('camera/image/' + k)) for k in ('width', 'height')]
+    focal = w/2 / math.tan(float(camera.findtext('camera/horizontal_fov'))/2)
+    rows, cols = np.mgrid[:h, :w]
+    # Robot faces -world X: the image's bottom rows see floor behind the camera.
+    world_x = robot_x - cx + (rows - h/2) * z / focal
+    world_y = .12 + lateral_error - cy + (cols - w/2) * z / focal
+    mask = (abs(world_x-tx) <= length/2) & (abs(world_y-ty) <= width/2)
+    image = np.full((h, w, 3), 240, dtype=np.uint8)
+    image[mask] = 5
+    command = line_command(image, .035, .004, .25, 55, .35)
+    assert command is not None
+    assert np.sign(command[1]) == np.sign(lateral_error)

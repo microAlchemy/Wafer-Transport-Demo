@@ -42,13 +42,17 @@ class Observer(DemoNode):
         self.fault_seen_wall = None
         self.complete_wall = None
         self.injected = False
+        self.room_tape_observed = False
+        self.room_exit_pose = None
         self.bridge = CvBridge()
         self.watch('/carrier_ready', Bool, LATCHED)
+        self.watch('/cleanroom/exited', Bool, LATCHED)
         self.watch('/carrier_delivered', Bool, LATCHED)
         self.watch('/system/state', String, LATCHED)
         self.watch('/system/fault', String, LATCHED)
         self.watch('/cmd_vel', Twist)
         self.watch('/odom', Odometry)
+        self.watch('/line/valid', Bool)
         self.watch_pose('carrier')
         self.watch_pose('wafer')
         self.watch_pose('transport_robot')
@@ -73,11 +77,15 @@ class Observer(DemoNode):
     def image(self, name, msg):
         self.frames[name] += 1
         moving = self.value('/transport/state') in {'FOLLOW_PATH', 'SCAN_QR', 'CONTINUE'}
-        if moving:
+        if moving or (self.scenario.startswith('room_') and
+                      self.value('/wafer_handler/state') == 'ENTER_ROOM'):
             self.injected = True
         if self.injected and self.scenario == 'missing_images':
             return
-        erase = ((self.scenario == 'lost_line' and self.injected and name == 'down_camera') or
+        if self.injected and self.scenario == 'room_missing_images' and name == 'down_camera':
+            return
+        erase = ((self.scenario == 'room_lost_line' and self.injected and name == 'down_camera') or
+                 (self.scenario == 'lost_line' and self.injected and name == 'down_camera') or
                  (self.scenario == 'missing_target' and name == 'camera'))
         if erase:
             image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
@@ -90,7 +98,11 @@ class Observer(DemoNode):
     def check(self):
         cmd = self.values.get('/cmd_vel', Twist())
         moving = abs(cmd.linear.x) + abs(cmd.angular.z) > 1e-5
+        if self.value('/cleanroom/exited') and self.room_exit_pose is None and self.fresh('/poses/transport_robot'):
+            self.room_exit_pose = self.position('transport_robot')
         handler = self.value('/wafer_handler/state')
+        if handler == 'ENTER_ROOM' and moving and self.fresh('/line/valid') and self.value('/line/valid'):
+            self.room_tape_observed = True
         if moving and not self.value('/carrier_ready') and handler not in ROOM_MOTION:
             self.errors.append('Motion outside authorized room maneuver before carrier_ready')
         settled = self.now() - self.handler_changed > .2  # Separate DDS topics arrive independently.
@@ -118,6 +130,9 @@ class Observer(DemoNode):
 
     def verdict(self):
         if self.scenario != 'nominal':
+            if self.scenario.startswith('room_') and not (self.injected and
+                    'ENTER_ROOM' in self.history['/wafer_handler/state']):
+                self.errors.append('Room tape failure injection was never reached')
             if not self.value('/system/fault'):
                 self.errors.append('Expected a fault')
             if self.value('/carrier_delivered'):
@@ -128,6 +143,12 @@ class Observer(DemoNode):
         else:
             if self.value('/system/state') != 'COMPLETE':
                 self.errors.append('Mission did not complete')
+            if self.room_exit_pose is None or self.room_exit_pose[0] < 1.0:
+                self.errors.append('Robot world pose did not confirm exit into corridor')
+            if not self.value('/cleanroom/exited'):
+                self.errors.append('Departure from Class 100 room was not verified')
+            if not self.room_tape_observed:
+                self.errors.append('No camera-detected tape observed during room entry')
             if self.destination not in self.qrs:
                 self.errors.append('Target QR was not observed')
             if self.destination == 'STATION_C' and 'CONTINUE' not in self.history['/transport/state']:
@@ -149,6 +170,7 @@ class Observer(DemoNode):
                 'scenario': self.scenario, 'errors': sorted(set(self.errors)),
                 'states': self.history, 'qr_ids': sorted(self.qrs),
                 'image_frames': self.frames, 'dock_error_m': self.drop_error,
+                'room_tape_observed': self.room_tape_observed, 'room_exit_pose': self.room_exit_pose,
                 'fault': self.value('/system/fault')}
 
 
@@ -156,7 +178,8 @@ def main(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--destination', choices=['STATION_A', 'STATION_B', 'STATION_C'], default='STATION_C')
     parser.add_argument('--scenario', choices=['nominal', 'missing_images', 'lost_line',
-                                              'failed_pickup', 'missing_target', 'stuck_door'], default='nominal')
+                                              'failed_pickup', 'missing_target', 'stuck_door',
+                                              'room_lost_line', 'room_missing_images'], default='nominal')
     parser.add_argument('--timeout', type=float, default=420)
     parser.add_argument('--output', default='log/integration')
     opts = parser.parse_args(args)

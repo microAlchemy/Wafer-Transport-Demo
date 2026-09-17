@@ -115,7 +115,7 @@
       <sensor name="forward_camera" type="camera">
         <pose>0.095 0 0.184 0 0 0</pose>
         <always_on>true</always_on>
-        <update_rate>20</update_rate>
+        <update_rate>8</update_rate>
         <topic>/camera/image_raw</topic>
         <camera>
           <horizontal_fov>1.7</horizontal_fov>
@@ -332,7 +332,7 @@
       <joint_name>tray_z</joint_name>
       <topic>/actuators/tray_z</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
     <joint name="tray_y" type="prismatic">
       <parent>lift</parent>
@@ -351,7 +351,7 @@
       <joint_name>tray_y</joint_name>
       <topic>/actuators/tray_y</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
       <left_joint>left_wheel_joint</left_joint>
@@ -424,7 +424,7 @@
         </material>
       </visual>
     </link>
-    <link name="reach_1">
+    <link name="reach_link_1">
       <pose>-0.04 0 0.452 0 0 0</pose>
       <inertial>
         <mass>0.01</mass>
@@ -452,12 +452,12 @@
     </link>
     <joint name="reach_1" type="prismatic">
       <parent>wand_lift</parent>
-      <child>reach_1</child>
+      <child>reach_link_1</child>
       <axis>
         <xyz>1 0 0</xyz>
         <limit>
-          <lower>0</lower>
-          <upper>0.087</upper>
+          <lower>-0.003</lower>
+          <upper>0.09</upper>
           <effort>100</effort>
           <velocity>0.12</velocity>
         </limit>
@@ -467,9 +467,9 @@
       <joint_name>reach_1</joint_name>
       <topic>/actuators/reach_1</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
-    <link name="reach_2">
+    <link name="reach_link_2">
       <pose>-0.04 0 0.452 0 0 0</pose>
       <inertial>
         <mass>0.01</mass>
@@ -496,13 +496,13 @@
       </visual>
     </link>
     <joint name="reach_2" type="prismatic">
-      <parent>reach_1</parent>
-      <child>reach_2</child>
+      <parent>reach_link_1</parent>
+      <child>reach_link_2</child>
       <axis>
         <xyz>1 0 0</xyz>
         <limit>
-          <lower>0</lower>
-          <upper>0.087</upper>
+          <lower>-0.003</lower>
+          <upper>0.09</upper>
           <effort>100</effort>
           <velocity>0.12</velocity>
         </limit>
@@ -512,7 +512,7 @@
       <joint_name>reach_2</joint_name>
       <topic>/actuators/reach_2</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
     <link name="wand">
       <pose>0 0 0.342 0 0 0</pose>
@@ -606,7 +606,7 @@
       <axis>
         <xyz>0 0 1</xyz>
         <limit>
-          <lower>-0.14</lower>
+          <lower>-0.145</lower>
           <upper>0.01</upper>
           <effort>100</effort>
           <velocity>0.12</velocity>
@@ -617,16 +617,16 @@
       <joint_name>wand_z</joint_name>
       <topic>/actuators/wand_z</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
     <joint name="wand_x" type="prismatic">
-      <parent>reach_2</parent>
+      <parent>reach_link_2</parent>
       <child>wand</child>
       <axis>
         <xyz>1 0 0</xyz>
         <limit>
-          <lower>0</lower>
-          <upper>0.087</upper>
+          <lower>-0.003</lower>
+          <upper>0.09</upper>
           <effort>100</effort>
           <velocity>0.12</velocity>
         </limit>
@@ -636,7 +636,7 @@
       <joint_name>wand_x</joint_name>
       <topic>/actuators/wand_x</topic>
       <use_velocity_commands>true</use_velocity_commands>
-      <cmd_max>0.07</cmd_max>
+      <cmd_max>0.1</cmd_max>
     </plugin>
     <plugin filename="gz-sim-detachable-joint-system" name="gz::sim::systems::DetachableJoint">
       <parent_link>wand</parent_link>

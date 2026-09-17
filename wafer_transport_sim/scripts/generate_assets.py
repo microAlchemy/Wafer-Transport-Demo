@@ -79,7 +79,7 @@ def link(model, name, xyz=(0, 0, 0), mass=0.1, size=(0.1, 0.1, 0.1)):
     return obj
 
 
-def joint(model, name, parent, child, axis=None, limits=None):
+def joint(model, name, parent, child, axis=None, limits=None, controller=None):
     j = el(model, 'joint', name=name, type='prismatic' if limits else
            ('revolute' if axis else 'fixed'))
     el(j, 'parent', parent)
@@ -93,9 +93,10 @@ def joint(model, name, parent, child, axis=None, limits=None):
         el(lim, 'effort', 100)
         el(lim, 'velocity', 0.12 if limits else 20)
     if limits:
+        controls = dict(use_velocity_commands=True, cmd_max=0.10)
+        controls.update(controller or {})
         plugin(model, 'joint-position-controller', 'JointPositionController',
-               joint_name=name, topic='/actuators/' + name,
-               use_velocity_commands=True, cmd_max=0.07)
+               joint_name=name, topic='/actuators/' + name, **controls)
 
 
 def attachment(model, name, parent, child):
@@ -219,16 +220,21 @@ def door():
           transparency=0.35)
     solid(panel, 'bottom_edge', (0.016, 0.278, 0.012), (0, 0, -0.234),
           color='0.9 0.65 0.05 1')
-    joint(model, 'door_z', 'frame', 'panel', '0 0 1', (0, 0.52))
+    # Keep both operating positions clear of the mechanical joint limits.
+    # Apply force through the physics engine; offset balances the 0.4 kg panel.
+    joint(model, 'door_z', 'frame', 'panel', '0 0 1', (-0.004, 0.535),
+          controller=dict(use_velocity_commands=False, p_gain=600.0, i_gain=0.0,
+                          d_gain=30.0, cmd_max=20.0, cmd_min=-20.0,
+                          cmd_offset=0.4 * 9.81))
     plugin(model, 'joint-state-publisher', 'JointStatePublisher', topic='/door/joint_states')
     save_model('guillotine_door', root)
 
 
-def camera(body, name, xyz, rpy, width, height, fov, topic):
+def camera(body, name, xyz, rpy, width, height, fov, topic, rate=20):
     s = el(body, 'sensor', name=name, type='camera')
     pose(s, (*xyz, *rpy))
     el(s, 'always_on', 'true')
-    el(s, 'update_rate', 20)
+    el(s, 'update_rate', rate)
     el(s, 'topic', topic)
     c = el(s, 'camera')
     el(c, 'horizontal_fov', fov)
@@ -267,7 +273,7 @@ def robot():
     joint(model, 'tray_y', 'lift', 'tray', '0 1 0', (-0.125, 0.005))
     solid(body, 'camera_mast', (0.012, 0.012, 0.16), (0.077, 0, 0.105), collision=False)
     camera(body, 'forward_camera', (0.095, 0, 0.184), (0, 0, 0),
-           960, 720, 1.7, '/camera/image_raw')
+           960, 720, 1.7, '/camera/image_raw', rate=8)
     # Forward of chassis so it sees the stripe without looking through the body.
     camera(body, 'down_camera', (0.13, 0, 0.015), (0, math.pi/2, 0),
            320, 240, 1.3, '/down_camera/image_raw')
@@ -285,19 +291,19 @@ def robot():
     solid(mast, 'fixed_sleeve', (0.12, 0.024, 0.024), (0.045, 0, 0.012),
           collision=False)
     for stage in (1, 2):
-        slider = link(model, 'reach_' + str(stage), (-0.04, 0, 0.452), mass=0.01)
+        slider = link(model, 'reach_link_' + str(stage), (-0.04, 0, 0.452), mass=0.01)
         width = .024 - stage * .004
         solid(slider, 'telescoping_tube', (.10, width, width), collision=False)
-        joint(model, 'reach_' + str(stage), 'wand_lift' if stage == 1 else 'reach_1',
-              'reach_' + str(stage), '1 0 0', (0, .087))
+        joint(model, 'reach_' + str(stage), 'wand_lift' if stage == 1 else 'reach_link_1',
+              'reach_link_' + str(stage), '1 0 0', (-.003, .09))
     arm = link(model, 'wand', (0, 0, 0.342), mass=0.025)
     solid(arm, 'vacuum_wand', (0.008, 0.08), shape='cylinder')
     solid(arm, 'vacuum_cup', (0.012, 0.004), (0, 0, -0.04),
           shape='cylinder', color='0.05 0.05 0.06 1')
     solid(arm, 'reach_rail', (0.10, 0.012, 0.012), (-0.04, 0, 0.11),
           collision=False)
-    joint(model, 'wand_z', 'base_link', 'wand_lift', '0 0 1', (-0.14, 0.01))
-    joint(model, 'wand_x', 'reach_2', 'wand', '1 0 0', (0, .087))
+    joint(model, 'wand_z', 'base_link', 'wand_lift', '0 0 1', (-0.145, 0.01))
+    joint(model, 'wand_x', 'reach_link_2', 'wand', '1 0 0', (-.003, .09))
     attachment(model, 'vacuum', 'wand', 'wafer')
     pose_feedback(model, 'transport_robot')
     attachment(model, 'carrier', 'tray', 'carrier')
@@ -365,11 +371,16 @@ def world():
               shape='cylinder', rpy=(math.pi/2, 0, 0), color=BLUE, collision=False)
         solid(body, 'glove_insert_' + str(x), (0.046, 0.014), (x, -0.006, 0.58),
               shape='cylinder', rpy=(math.pi/2, 0, 0), color=SILVER, collision=False)
-    for x in (0.02, 0.895):
-        solid(body, 'frame_' + str(x), (0.025, 0.025, 1.2192), (x, 0.025, 0.6096))
+    # Keep the corner post behind the door plane, clear of its entire stroke.
+    for x in (0.02, 0.87):
+        solid(body, 'frame_' + str(x), (0.025, 0.025, 1.2192), (x, 0.0125, 0.6096))
     solid(body, 'top_frame', (0.9144, 0.025, 0.025), (0.4572, 0.025, 1.2067))
     solid(body, 'corridor_boundary', (0.008, 1.2192, 0.025), (1.2152, 0.6096, 0.0125))
     solid(body, 'path', (0.018, 1.19, 0.0005), (1.025, 0.6096, 0.0003),
+          color='0.005 0.005 0.005 1', collision=False)
+    # Continuous 18 mm tape branch through the doorway to the pickup approach.
+    # It extends beyond the downward camera at the stopped pickup pose.
+    solid(body, 'room_tape', (0.58, 0.018, 0.0005), (0.79, 0.12, 0.0003),
           color='0.005 0.005 0.005 1', collision=False)
     solid(body, 'process_output', (0.18, 0.16, 0.154), (0.4, 0.12, 0.077), color=BLUE)
     solid(body, 'process_machine', (0.25, 0.3, 0.4), (0.30, 0.55, 0.2), color=SILVER)

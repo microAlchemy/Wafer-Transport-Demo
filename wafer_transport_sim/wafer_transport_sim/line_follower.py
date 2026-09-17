@@ -12,7 +12,7 @@ from .vision import line_command
 class LineFollower(DemoNode):
     def __init__(self):
         super().__init__('line_follower')
-        for name, default in [('linear_speed', 0.035), ('kp', 0.004),
+        for name, default in [('linear_speed', 0.06), ('kp', 0.004),
                               ('max_angular_speed', 0.6), ('threshold', 55),
                               ('camera_crop_ratio', 0.35)]:
             self.param(name, default)

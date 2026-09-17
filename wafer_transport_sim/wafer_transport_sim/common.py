@@ -42,6 +42,15 @@ class DemoNode(Node):
         return all(t in self.received and
                    0 <= self.now() - self.received[t] < timeout for t in topics)
 
+    def feedback_issues(self, *topics):
+        issues = []
+        for topic in topics:
+            if topic not in self.received:
+                issues.append(topic + ': no messages')
+            elif not self.fresh(topic):
+                issues.append(f'{topic}: stale ({self.now() - self.received[topic]:.2f}s)')
+        return issues
+
     def value(self, topic, default=None):
         msg = self.values.get(topic)
         return getattr(msg, 'data', default)
