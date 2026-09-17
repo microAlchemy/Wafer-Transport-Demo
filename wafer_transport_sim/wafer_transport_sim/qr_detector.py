@@ -16,7 +16,8 @@ class QrDetector(DemoNode):
         self.detector = cv2.QRCodeDetector()
         count = self.param('confirmation_frames', 3)
         self.param('minimum_qr_side_pixels', 70.0)
-        self.filters = {station: DetectionFilter(count) for station in STATIONS}
+        codes = self.param('valid_codes', list(STATIONS))
+        self.filters = {station: DetectionFilter(count, codes) for station in codes}
         self.create_subscription(Image, '/camera/image_raw', self.image,
                                  qos_profile_sensor_data)
 

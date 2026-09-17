@@ -24,6 +24,7 @@ setup(
     entry_points={'console_scripts': [
         f'{name} = {PACKAGE}.{name}:main' for name in (
             'system_manager', 'wafer_handler', 'line_follower', 'qr_detector',
-            'transport_controller', 'docking_controller', 'integration_check')
+            'transport_controller', 'docking_controller', 'integration_check',
+            'four_room_controller', 'four_room_check')
     ]},
 )

@@ -205,7 +205,7 @@ def main(args=None):
             bridge_file.write_text(yaml.safe_dump(config))
             with (output / (stem + '.log')).open('w') as log:
                 process = subprocess.Popen([
-                    'ros2', 'launch', 'wafer_transport_sim', 'demo.launch.py',
+                    'ros2', 'launch', 'wafer_transport_sim', 'demo.launch.py', 'layout:=single_room',
                     'gui:=false', f'destination_station:={opts.destination}',
                     f'bridge_config:={bridge_file}'], stdout=log, stderr=subprocess.STDOUT,
                     start_new_session=True)

@@ -92,7 +92,8 @@ def ros(monkeypatch):
     }.items():
         module(package)
         module(package + '.msg', **symbols)
-    for name in ('common', 'wafer_handler', 'transport_controller', 'docking_controller', 'system_manager'):
+    for name in ('common', 'wafer_handler', 'transport_controller', 'docking_controller', 'system_manager',
+                 'four_room_controller'):
         key = 'wafer_transport_sim.' + name
         monkeypatch.delitem(sys.modules, key, raising=False)
         mod = importlib.import_module(key)

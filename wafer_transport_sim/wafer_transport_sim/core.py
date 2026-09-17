@@ -51,13 +51,14 @@ def placed(position, target, xy_tolerance=0.015, z_tolerance=0.006):
 
 
 class DetectionFilter:
-    def __init__(self, count=3):
+    def __init__(self, count=3, valid_codes=STATIONS):
         self.required = count
+        self.valid_codes = valid_codes
         self.last = ''
         self.count = 0
 
     def update(self, station):
-        if station not in STATIONS:
+        if station not in self.valid_codes:
             self.last, self.count = '', 0
             return ''
         self.count = self.count + 1 if station == self.last else 1
