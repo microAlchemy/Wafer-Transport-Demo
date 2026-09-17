@@ -171,7 +171,7 @@ def textures():
         d = ImageDraw.Draw(label)
         d.text((4, 8), f'STATION {letter.upper()} / {process}', fill='#10344a')
         label.resize((720, 120)).save(dest / f'station_{letter}_label.png')
-    for name, text in [('enclosure', 'ENCLOSURE 4 x 3 x 4 ft'),
+    for name, text in [('enclosure', 'CLASS 100 / 4 x 3 x 4 ft'),
                        ('corridor', 'CORRIDOR 1 x 4 x 4 ft')]:
         image = Image.new('RGB', (210, 30), '#10344a')
         ImageDraw.Draw(image).text((4, 8), text, fill='white')
@@ -205,26 +205,23 @@ def carrier():
     save_model('carrier', root)
 
 
-def gantry():
-    root, model = new_model('gantry')
-    base = link(model, 'base', (0, 0, 0.5), mass=2)
-    solid(base, 'cross_rail', (0.85, 0.04, 0.035), (0.30, 0, 0), color=SILVER)
-    for x in (-0.1, 0.73):
-        solid(base, 'post_' + str(x), (0.025, 0.04, 0.49), (x, 0.10, -0.245))
-    joint(model, 'world_mount', 'world', 'base')
-    carriage = link(model, 'carriage', (0, 0, 0.46), mass=0.25)
-    solid(carriage, 'slider', (0.07, 0.06, 0.03), color=BLUE)
-    wand = link(model, 'wand', (0, 0, 0.2), mass=0.08, size=(0.018, 0.018, 0.08))
-    solid(wand, 'vacuum_wand', (0.008, 0.08), shape='cylinder', color=SILVER)
-    solid(wand, 'vacuum_cup', (0.012, 0.004), (0, 0, -0.038),
-          shape='cylinder', color='0.05 0.05 0.06 1')
-    # Rod is visual only, avoiding carriage contact at full retraction.
-    solid(wand, 'z_rod', (0.008, 0.008, 0.25), (0, 0, 0.155), collision=False)
-    joint(model, 'gantry_x', 'base', 'carriage', '1 0 0', (-0.01, 0.66))
-    joint(model, 'gantry_z', 'carriage', 'wand', '0 0 1', (-0.005, 0.22))
-    plugin(model, 'joint-state-publisher', 'JointStatePublisher', topic='/gantry/joint_states')
-    attachment(model, 'vacuum', 'wand', 'wafer')
-    save_model('gantry', root)
+def door():
+    root, model = new_model('guillotine_door')
+    frame = link(model, 'frame', mass=2)
+    for y in (0.008, 0.302):
+        solid(frame, 'guide_' + str(y), (0.026, 0.012, 1.05),
+              (0, y, 0.525), color=BLUE)
+    solid(frame, 'drive_housing', (0.045, 0.31, 0.06), (0, 0.155, 1.08))
+    joint(model, 'door_mount', 'world', 'frame')
+    panel = link(model, 'panel', (0, 0.155, 0.245), mass=0.4,
+                 size=(0.012, 0.278, 0.48))
+    solid(panel, 'sliding_panel', (0.012, 0.278, 0.48), color='0.5 0.75 0.85 1',
+          transparency=0.35)
+    solid(panel, 'bottom_edge', (0.016, 0.278, 0.012), (0, 0, -0.234),
+          color='0.9 0.65 0.05 1')
+    joint(model, 'door_z', 'frame', 'panel', '0 0 1', (0, 0.52))
+    plugin(model, 'joint-state-publisher', 'JointStatePublisher', topic='/door/joint_states')
+    save_model('guillotine_door', root)
 
 
 def camera(body, name, xyz, rpy, width, height, fov, topic):
@@ -281,6 +278,28 @@ def robot():
            odom_publish_frequency=30, max_linear_acceleration=0.08,
            max_angular_acceleration=0.8)
     plugin(model, 'joint-state-publisher', 'JointStatePublisher', topic='/robot/joint_states')
+    # The vacuum manipulator travels with the chassis. Its tip retracts over
+    # the carrier; both axes are physical prismatic joints with feedback.
+    mast = link(model, 'wand_lift', (-0.075, 0, 0.44), mass=0.025)
+    solid(mast, 'mast', (0.016, 0.018, 0.14), (0, 0, -0.05))
+    solid(mast, 'fixed_sleeve', (0.12, 0.024, 0.024), (0.045, 0, 0.012),
+          collision=False)
+    for stage in (1, 2):
+        slider = link(model, 'reach_' + str(stage), (-0.04, 0, 0.452), mass=0.01)
+        width = .024 - stage * .004
+        solid(slider, 'telescoping_tube', (.10, width, width), collision=False)
+        joint(model, 'reach_' + str(stage), 'wand_lift' if stage == 1 else 'reach_1',
+              'reach_' + str(stage), '1 0 0', (0, .087))
+    arm = link(model, 'wand', (0, 0, 0.342), mass=0.025)
+    solid(arm, 'vacuum_wand', (0.008, 0.08), shape='cylinder')
+    solid(arm, 'vacuum_cup', (0.012, 0.004), (0, 0, -0.04),
+          shape='cylinder', color='0.05 0.05 0.06 1')
+    solid(arm, 'reach_rail', (0.10, 0.012, 0.012), (-0.04, 0, 0.11),
+          collision=False)
+    joint(model, 'wand_z', 'base_link', 'wand_lift', '0 0 1', (-0.14, 0.01))
+    joint(model, 'wand_x', 'reach_2', 'wand', '1 0 0', (0, .087))
+    attachment(model, 'vacuum', 'wand', 'wafer')
+    pose_feedback(model, 'transport_robot')
     attachment(model, 'carrier', 'tray', 'carrier')
     save_model('transport_robot', root)
 
@@ -334,10 +353,10 @@ def world():
     solid(body, 'floor', (1.2192, 1.2192, 0.03), (0.6096, 0.6096, -0.015), color=WHITE)
     solid(body, 'enclosure_back', (0.015, 1.2192, 1.2192), (0.0075, 0.6096, 0.6096))
     solid(body, 'enclosure_far', (0.9144, 0.015, 1.2192), (0.4572, 1.2117, 0.6096))
-    # Enclosure/corridor dividing panel has a low loading aperture at y<0.24.
-    solid(body, 'divider', (0.01, 0.9692, 1.2192), (0.9094, 0.7346, 0.6096),
+    # Robot doorway: y=0.014..0.296, with a vertically sliding panel.
+    solid(body, 'divider', (0.01, 0.9092, 1.2192), (0.9094, 0.7646, 0.6096),
           color='0.6 0.8 0.9 1', transparency=0.78)
-    solid(body, 'loading_header', (0.01, 0.25, 0.65), (0.9094, 0.125, 0.8942),
+    solid(body, 'loading_header', (0.01, 0.31, 0.6992), (0.8854, 0.155, 0.8696),
           color='0.6 0.8 0.9 1', transparency=0.78)
     solid(body, 'front_glass', (0.9144, 0.01, 1.2192), (0.4572, 0.005, 0.6096),
           color='0.6 0.8 0.9 1', transparency=0.85)
@@ -366,7 +385,7 @@ def world():
     for name, xyz, yaw in [
         ('wafer', (0.4, 0.12, 0.156), 0),
         ('carrier', (1.025, 0.12, 0.15), math.pi/2),
-        ('gantry', (0.4, 0.12, 0), 0),
+        ('guillotine_door', (0.9094, 0, 0), 0),
         ('transport_robot', (1.025, 0.12, 0), math.pi/2),
         ('stations', (0, 0, 0), 0),
     ]:
@@ -389,7 +408,7 @@ if __name__ == '__main__':
     textures()
     wafer()
     carrier()
-    gantry()
+    door()
     robot()
     stations()
     world()

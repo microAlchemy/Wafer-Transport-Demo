@@ -122,10 +122,10 @@
           </surface>
         </collision>
         <visual name="divider">
-          <pose>0.9094 0.7346 0.6096 0 0 0</pose>
+          <pose>0.9094 0.7646 0.6096 0 0 0</pose>
           <geometry>
             <box>
-              <size>0.01 0.9692 1.2192</size>
+              <size>0.01 0.9092 1.2192</size>
             </box>
           </geometry>
           <material>
@@ -135,10 +135,10 @@
           <transparency>0.78</transparency>
         </visual>
         <collision name="divider_collision">
-          <pose>0.9094 0.7346 0.6096 0 0 0</pose>
+          <pose>0.9094 0.7646 0.6096 0 0 0</pose>
           <geometry>
             <box>
-              <size>0.01 0.9692 1.2192</size>
+              <size>0.01 0.9092 1.2192</size>
             </box>
           </geometry>
           <surface>
@@ -151,10 +151,10 @@
           </surface>
         </collision>
         <visual name="loading_header">
-          <pose>0.9094 0.125 0.8942 0 0 0</pose>
+          <pose>0.8854 0.155 0.8696 0 0 0</pose>
           <geometry>
             <box>
-              <size>0.01 0.25 0.65</size>
+              <size>0.01 0.31 0.6992</size>
             </box>
           </geometry>
           <material>
@@ -164,10 +164,10 @@
           <transparency>0.78</transparency>
         </visual>
         <collision name="loading_header_collision">
-          <pose>0.9094 0.125 0.8942 0 0 0</pose>
+          <pose>0.8854 0.155 0.8696 0 0 0</pose>
           <geometry>
             <box>
-              <size>0.01 0.25 0.65</size>
+              <size>0.01 0.31 0.6992</size>
             </box>
           </geometry>
           <surface>
@@ -565,9 +565,9 @@
       <pose>1.025 0.12 0.15 0 0 1.5707963267948966</pose>
     </include>
     <include>
-      <uri>model://gantry</uri>
-      <name>gantry</name>
-      <pose>0.4 0.12 0 0 0 0</pose>
+      <uri>model://guillotine_door</uri>
+      <name>guillotine_door</name>
+      <pose>0.9094 0 0 0 0 0</pose>
     </include>
     <include>
       <uri>model://transport_robot</uri>

@@ -18,6 +18,6 @@ done
 for station in STATION_A STATION_B STATION_C; do
   ros2 run wafer_transport_sim integration_check --destination "$station"
 done
-for scenario in missing_images lost_line failed_pickup missing_target; do
+for scenario in missing_images lost_line failed_pickup missing_target stuck_door; do
   ros2 run wafer_transport_sim integration_check --scenario "$scenario"
 done

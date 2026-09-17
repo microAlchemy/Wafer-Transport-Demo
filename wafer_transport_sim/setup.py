@@ -15,7 +15,7 @@ for directory in ('launch', 'worlds', 'models', 'config', 'textures', 'scripts')
 
 setup(
     name=PACKAGE, version='0.1.0', packages=[PACKAGE],
-    data_files=data_files, install_requires=['setuptools'], tests_require=['pytest'],
+    data_files=data_files, install_requires=['setuptools'], extras_require={'test': ['pytest']},
     zip_safe=False,
     maintainer='Wafer Transport Demo maintainers',
     maintainer_email='maintainer@example.com',

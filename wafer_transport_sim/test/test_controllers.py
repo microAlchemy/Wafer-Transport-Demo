@@ -3,6 +3,7 @@
 These test state logic and watchdogs, not Gazebo physics or DDS behavior.
 """
 import importlib
+import math
 import sys
 from types import ModuleType, SimpleNamespace as NS
 import pytest
@@ -100,8 +101,32 @@ def ros(monkeypatch):
     return bus
 
 
-def pose(x, y, z):
-    return NS(pose=NS(position=NS(x=x, y=y, z=z)))
+def pose(x, y, z, heading=math.pi/2):
+    return NS(pose=NS(position=NS(x=x, y=y, z=z),
+                      orientation=NS(x=0., y=0., z=math.sin(heading/2), w=math.cos(heading/2))))
+
+
+def room_feedback(ros, node, x=.65, heading=math.pi/2):
+    odom = Odometry()
+    odom.pose.pose.orientation.z = math.sin(heading/2)
+    odom.pose.pose.orientation.w = math.cos(heading/2)
+    ros.emit('/odom', odom)
+    ros.emit('/poses/transport_robot', pose(x, .12, 0., heading+math.pi/2))
+    ros.emit('/poses/carrier', pose(x, .12, .154))
+    ros.emit('/line/valid', Scalar(False))  # No stripe inside the room is expected.
+    ros.emit('/line/healthy', Scalar(True))
+    ros.emit('/qr/healthy', Scalar(True))
+    ros.emit('/attachments/carrier/state', Scalar('attached'))
+    for topic, names in [('/robot/joint_states', ('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z')),
+                         ('/door/joint_states', ('door_z',))]:
+        targets = [ros.outputs.get('/actuators/' + n, Scalar(0.)).data for n in names]
+        ros.emit(topic, NS(name=list(names), position=targets))
+
+
+def set_handler_state(ros, node, state):
+    node.sequence = ros.wafer_handler.Sequence(ros.wafer_handler.STEPS,
+                    index=ros.wafer_handler.STEPS.index(state), entered=ros.time)
+    node.change(state)
 
 
 def test_wafer_handler_full_sequence_and_readiness(ros):
@@ -113,17 +138,23 @@ def test_wafer_handler_full_sequence_and_readiness(ros):
     node.tick()
     assert node.state == 'HOME'
     history = [node.state]
-    for _ in range(60):
+    entered_room = False
+    for _ in range(100):
         ros.time += .05
-        for name in ('gantry_x', 'gantry_z'):
-            target = ros.outputs.get('/actuators/' + name, Scalar(0.)).data
-            ros.emit('/gantry/joint_states', NS(name=[name], position=[target]))
-        x = .4 + node.joints.get('gantry_x', 0.)
-        z = .155 + node.joints.get('gantry_z', 0.)
-        if node.state in ('VACUUM_OFF', 'LIFT_RETRACT', 'TRANSFER_COMPLETE'):
-            x, z = 1.025, .155
-        ros.emit('/poses/wafer', pose(x, .12, z))
-        ros.emit('/poses/carrier', pose(1.025, .12, .15))
+        if node.state == 'ENTER_ROOM':
+            entered_room = True
+        elif node.state == 'EXIT_ROOM':
+            entered_room = False
+        rx = .65 if entered_room else 1.025
+        heading = 0. if node.state in ('HOME', 'OPEN_ENTRY', 'TURN_OUT', 'CLOSE_EXIT', 'TRANSFER_COMPLETE') else math.pi/2
+        room_feedback(ros, node, rx, heading)
+        wx = .4 if node.state in ros.wafer_handler.STEPS[:10] else rx
+        wz = .155 + node.joints.get('wand_z', 0.) + .14
+        if node.state in ('MOVE_TO_WAFER', 'LOWER_WAND', 'VACUUM_ON', 'VERIFY_VACUUM'):
+            wx, wz = .4, .155
+        if node.state in ros.wafer_handler.STEPS[12:]:
+            wx, wz = rx, .159
+        ros.emit('/poses/wafer', pose(wx, .12, wz))
         if node.state in ('VACUUM_ON', 'VERIFY_VACUUM', 'LIFT_PICKUP', 'MOVE_TO_BOX', 'LOWER'):
             ros.emit('/attachments/vacuum/state', Scalar('attached'))
         elif node.state == 'VACUUM_OFF':
@@ -132,25 +163,78 @@ def test_wafer_handler_full_sequence_and_readiness(ros):
         if node.state != history[-1]:
             history.append(node.state)
         if node.state == 'TRANSFER_COMPLETE':
-            node.tick()
             break
+        assert not ros.outputs['/carrier_ready'].data
     assert history == list(ros.wafer_handler.STEPS)
     assert ros.outputs['/carrier_ready'].data
+    assert ros.outputs['/door/closed'].data
 
 
 def test_failed_vacuum_cannot_become_ready(ros):
     node = ros.wafer_handler.WaferHandler()
-    node.sequence = ros.wafer_handler.Sequence(ros.wafer_handler.STEPS, index=3, entered=ros.time)
-    node.change('VACUUM_ON')
+    set_handler_state(ros, node, 'VACUUM_ON')
+    room_feedback(ros, node)
+    ros.emit('/robot/joint_states', NS(name=['reach_1', 'reach_2', 'wand_x', 'wand_z'],
+                                     position=[.25/3, .25/3, .25/3, -.14]))
     ros.emit('/attachments/vacuum/state', Scalar('detached'))
     ros.emit('/poses/wafer', pose(.4, .12, .155))
-    ros.emit('/poses/carrier', pose(1.025, .12, .15))
     node.tick()
     assert node.state == 'VACUUM_ON'
     ros.time += 31
     node.tick()
     assert node.state == 'FAULT'
     assert not ros.outputs['/carrier_ready'].data
+
+
+@pytest.mark.parametrize('state', ['CLOSE_ENTRY', 'CLOSE_EXIT'])
+def test_door_cannot_close_on_robot(ros, state):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, state)
+    room_feedback(ros, node, x=.91)
+    ros.emit('/poses/wafer', pose(.91, .12, .159))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'FAULT'
+    assert ros.outputs['/actuators/door_z'].data == .52
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+
+
+@pytest.mark.parametrize('failure', ['closed_door', 'stale_pose', 'lost_carrier'])
+def test_entry_interlocks_stop_motion(ros, failure):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'ENTER_ROOM')
+    room_feedback(ros, node, x=1.025)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    if failure == 'closed_door':
+        ros.emit('/door/joint_states', NS(name=['door_z'], position=[.1]))
+    elif failure == 'stale_pose':
+        ros.time += 1.1
+    else:
+        ros.emit('/attachments/carrier/state', Scalar('detached'))
+    node.tick()
+    assert node.state == 'FAULT'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+
+
+def test_entry_uses_motion_feedback_and_waits_for_measured_stop(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'ENTER_ROOM')
+    room_feedback(ros, node, x=1.025)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'ENTER_ROOM'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x > 0.
+    room_feedback(ros, node, x=.65)
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.values['/odom'].twist.twist.linear.x = .02
+    node.tick()
+    assert node.state == 'ENTER_ROOM'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+    node.values['/odom'].twist.twist.linear.x = 0.
+    node.tick()
+    assert node.state == 'CLOSE_ENTRY'
 
 
 def make_transport(ros):
@@ -165,6 +249,7 @@ def feedback(ros, node, x=0.):
     odom.pose.pose.position.x = x
     ros.emit('/odom', odom)
     ros.emit('/poses/carrier', pose(1.025, .12+x, .154))
+    ros.emit('/poses/transport_robot', pose(1.025, .12+x, 0.))
     ros.emit('/poses/wafer', pose(1.025, .12+x, .160))
     line = Twist()
     line.linear.x = .035
@@ -291,10 +376,10 @@ def test_manager_gates_start_transport_and_completion(ros):
     node.tick()
     assert node.state == 'WAIT_FOR_SIMULATOR'
     assert '/system/start' not in ros.outputs
-    for topic in ('/odom', '/gantry/joint_states', '/robot/joint_states',
-                  '/poses/wafer', '/poses/carrier'):
+    for topic in ('/odom', '/door/joint_states', '/robot/joint_states',
+                  '/poses/wafer', '/poses/carrier', '/poses/transport_robot'):
         ros.emit(topic, Scalar())
-    for topic in ('/line/valid', '/qr/healthy', '/carrier_present'):
+    for topic in ('/line/valid', '/qr/healthy', '/carrier_present', '/door/closed'):
         ros.emit(topic, Scalar(True))
     ros.emit('/attachments/vacuum/state', Scalar('detached'))
     node.tick()
@@ -313,3 +398,61 @@ def test_manager_gates_start_transport_and_completion(ros):
     ros.emit('/transport/state', Scalar('DELIVERY_COMPLETE'))
     node.tick()
     assert node.state == 'COMPLETE'
+
+
+def test_room_command_arbitration_and_heartbeat_stop(ros):
+    node = make_transport(ros)
+    feedback(ros, node)
+    ros.emit('/system/start', Scalar(True))
+    ros.emit('/wafer_handler/state', Scalar('ENTER_ROOM'))
+    ros.emit('/door/open', Scalar(True))
+    candidate = Twist()
+    candidate.linear.x = .025
+    ros.emit('/cleanroom/cmd_vel', candidate)
+    node.tick()
+    assert ros.outputs['/cmd_vel'].linear.x == .025
+    assert not ros.outputs['/carrier_delivered'].data
+    ros.time += 1.1
+    feedback(ros, node)
+    node.tick()
+    assert node.state == 'FAULT'
+    assert ros.outputs['/cmd_vel'].linear.x == 0.
+
+
+def test_pickup_waits_for_closed_door(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'MOVE_TO_WAFER')
+    room_feedback(ros, node)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    node.tick()
+    assert node.state == 'FAULT'
+    assert '/attachments/vacuum/attach' not in ros.outputs
+
+
+def test_stuck_door_never_authorizes_entry(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'OPEN_ENTRY')
+    room_feedback(ros, node, x=1.025, heading=0.)
+    ros.emit('/poses/wafer', pose(.4, .12, .155))
+    node.tick()
+    assert node.state == 'OPEN_ENTRY'
+    assert ros.outputs['/actuators/door_z'].data == .52
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.
+    assert ros.outputs['/cleanroom/cmd_vel'].angular.z == 0.
+    ros.time += 31
+    node.tick()
+    assert node.state == 'FAULT'
+    assert not ros.outputs['/carrier_ready'].data
+
+
+def test_extended_wand_prevents_robot_passage(ros):
+    node = ros.wafer_handler.WaferHandler()
+    set_handler_state(ros, node, 'EXIT_ROOM')
+    room_feedback(ros, node)
+    ros.emit('/poses/wafer', pose(.65, .12, .159))
+    ros.emit('/door/joint_states', NS(name=['door_z'], position=[.52]))
+    ros.emit('/robot/joint_states', NS(name=['reach_1'], position=[.08]))
+    node.tick()
+    assert node.state == 'FAULT'
+    assert ros.outputs['/cleanroom/cmd_vel'].linear.x == 0.

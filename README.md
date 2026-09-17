@@ -1,15 +1,16 @@
 # Wafer handling and transport simulation
 
-A ROS 2 Lyrical / Gazebo Jetty demonstration of two coordinated mechanisms:
-an X/Z vacuum gantry inside a cleanroom enclosure and a camera-guided mobile
-robot that delivers a wafer carrier to a QR-identified process station.
+A ROS 2 Lyrical / Gazebo Jetty demonstration of a mobile wafer-handling robot.
+The robot enters a Class 100 room through a powered guillotine door, uses its
+onboard telescoping vacuum wand to load its carrier, and returns to the corridor
+to deliver that carrier to a camera-recognized QR station. There is no stationary gantry.
 
 **Validation status:** Python, controller, image-processing, and asset checks
 have been run on macOS. Gazebo physics, ROS/DDS integration, rendered-camera
 recognition, and GUI operation have **not** been run here: this development
-machine has no ROS or Gazebo installation. All 42 local tests pass and cover
-QR decoding at projected camera angles, controller state sequences, and fault
-stops, plus installer ordering and failure handling with mocked system commands.
+machine has no ROS or Gazebo installation. All 53 local tests pass and cover
+QR decoding at projected camera angles, door clearance, mobile pickup, command
+arbitration and fault stops, plus installer ordering and failure handling with mocked system commands.
 These checks do not validate Python 3.14, Lyrical, or Jetty at runtime. The Ubuntu
 verification runner below measures those behaviors and records failures instead
 of assuming success.
@@ -104,6 +105,21 @@ source install/setup.bash
 ros2 launch wafer_transport_sim demo.launch.py
 ```
 
+For an existing UTM installation, stop the old demo with **Ctrl-C**. The refreshed
+`dist/wafer-transport-ubuntu26.04.zip` on the Mac contains this version. If UTM
+shares that `dist` folder at `/mnt/utm`, extract into a fresh workspace so obsolete
+models and previous build artifacts cannot be selected:
+
+```bash
+mkdir -p ~/wafer-mobile-update
+unzip -o /mnt/utm/wafer-transport-ubuntu26.04.zip -d ~/wafer-mobile-update
+cd ~/wafer-mobile-update/Wafer-Transport-Demo
+source /opt/ros/lyrical/setup.bash
+colcon build --symlink-install --packages-select wafer_transport_sim
+source install/setup.bash
+ros2 launch wafer_transport_sim demo.launch.py
+```
+
 If this checkout was previously built under Jazzy, use a fresh build directory:
 
 ```bash
@@ -151,7 +167,10 @@ in the configuration before launch, with corresponding model changes.
 World X spans the enclosure width, 0–0.9144 m, followed by the corridor,
 0.9144–1.2192 m. World Y spans 0–1.2192 m along both regions. Their combined floor
 is 1.2192 m square. The enclosure has transparent front/dividing panels, a loading
-opening, structural posts, dimensional signs, and simple process equipment.
+robot doorway, structural posts, dimensional signs, and simple process equipment.
+The door panel slides vertically through 0.52 m. Its guides and offset fixed
+header leave a passage for the robot with its wand stowed. “Class 100” is a room
+label and operating sequence; air filtration and particle counts are not modeled.
 The corridor is open for viewing; its designated height is 1.2192 m.
 
 The robot starts at world `(1.025, 0.12, 0)` facing +Y. Its chassis is 0.18 × 0.12 m,
@@ -174,7 +193,9 @@ This scale fits the specified corridor; it is not a full-size 300 mm wafer syste
 flowchart TD
   M[system_manager] --> H[wafer_handler]
   M --> T[transport_controller]
-  H --> G[X/Z joints and vacuum attachment]
+  H --> G[Onboard wand joints and vacuum attachment]
+  H --> V[Guillotine door joint]
+  H -->|cleanroom/cmd_vel| T
   H --> R[carrier_ready]
   R --> T
   DC[Downward camera] --> L[line_follower]
@@ -189,29 +210,46 @@ flowchart TD
 ```
 
 `transport_controller` is the **only publisher of `/cmd_vel`**. Candidate commands
-from line following and docking cannot race each other. Stationary and fault
-states override both with zero velocity.
+from room navigation, line following, and docking are selected by mission phase.
+Before loading, only the authorized room-entry/exit maneuvers can command wheels.
+Pickup, door actuation, and fault states command zero wheel velocity.
 
 ### Wafer handling
 
 ```text
-IDLE → HOME → MOVE_TO_WAFER → LOWER_WAND → VACUUM_ON → VERIFY_VACUUM
+IDLE → HOME → OPEN_ENTRY → TURN_IN → ENTER_ROOM → CLOSE_ENTRY
+→ MOVE_TO_WAFER → LOWER_WAND → VACUUM_ON → VERIFY_VACUUM
 → LIFT_PICKUP → MOVE_TO_BOX → LOWER → VACUUM_OFF → LIFT_RETRACT
-→ TRANSFER_COMPLETE
+→ OPEN_EXIT → EXIT_ROOM → TURN_OUT → CLOSE_EXIT → TRANSFER_COMPLETE
 ```
 
-The two explicit `LIFT` phases have distinct names so logs and tests can distinguish
-them. Joint feedback, attachment state, and wafer pose gate transitions; elapsed
-time alone never marks a move successful. The stock detachable-joint plugin starts
-attached, so initialization releases the wafer onto the process output before
-homing. A small wand/wafer gap avoids reattachment during collision. Vacuum pickup
-then joins the wafer to the wand at their current relative pose. Lifting verifies
-that the wafer actually rises.
+The carrier attachment is initialized while supported on the loading rails.
+`HOME` raises the tray 4 mm clear of those rails and checks the wand is stowed.
+The guillotine door must report its fully open position before wheel motion.
+The robot turns to face −world X and enters to `(0.65, 0.12)`. After it stops
+fully inside, the door closes; pickup requires measured closure and zero motion.
 
-The carrier starts on the docked robot and is supported by loading rails during
-its initialization handshake. The gantry deposits the wafer into its open
-clamshell-style tray and retracts. Only then does `/carrier_ready` become true.
-No `set_pose` calls or teleportation are used.
+The robot's wand has a Z lift and three nested horizontal prismatic stages
+(`reach_1`, `reach_2`, `wand_x`), each extending one third of the 0.25 m reach.
+The tip lowers to the process output at `(0.4, 0.12)`, attaches the wafer, lifts,
+retracts over the onboard carrier, lowers, releases, and retracts vertically.
+The two `LIFT` phases have distinct names. Joint feedback, attachment
+acknowledgements, and actual wafer position gate every step.
+
+The stock detachable-joint plugin starts attached, so initialization releases the
+wafer onto the process output before motion. A small wand/wafer gap avoids
+reattachment while those bodies are touching. Pickup joins the wafer to the wand
+at their current relative pose; measured lift verifies the wafer actually rises.
+The speed-limited joint control follows the
+[Jetty JointPositionController interface](https://gazebosim.org/api/sim/10/classgz_1_1sim_1_1systems_1_1JointPositionController.html).
+
+After loading, the door reopens, the robot reverses out to its initial position,
+turns back toward the corridor, and waits for the door to close behind it.
+`/carrier_ready` becomes true only after this entire sequence. The manager then
+enables station transport. During closure, the robot must be stopped and its
+oriented footprint, including wand extension, must clear the door plane. An
+obstruction, stalled door, stale feedback, or lost payload produces a fault.
+No `set_pose` calls or object teleportation are used.
 
 ### Path following and QR recognition
 
@@ -226,7 +264,10 @@ angular_z = clamp(-kp * error, -max_angular_speed, max_angular_speed)
 
 Defaults are 0.035 m/s, `kp=0.004`, angular limit 0.6 rad/s, threshold 55, and crop
 ratio 0.35. Missing images, an all-dark image, or no valid stripe cannot produce a
-valid forward command. The robot's trajectory is not scripted with waypoints.
+valid forward command. Corridor travel follows the camera stripe; the short
+entry and reverse-exit maneuvers use known room geometry, robot pose, and odometry.
+Inside the room a missing stripe is expected, but missing or unreadable camera
+images still fault the mission.
 
 The forward camera supplies 960 × 720 RGB images at 20 Hz. OpenCV
 `QRCodeDetector.detectAndDecodeMulti` reads the genuine textured QR panels.
@@ -253,8 +294,8 @@ WAIT_FOR_CARRIER → VERIFY_CARRIER → READ_DESTINATION → START_TRANSPORT
            → DROP_CARRIER → VERIFY_DROP → DELIVERY_COMPLETE
 ```
 
-The tray first lifts 4 mm clear of the loading rails. Line following handles
-normal motion. A matching QR authorizes the docking controller, which computes
+The tray already cleared its loading rails before entry. Line following handles
+normal corridor motion. A matching QR authorizes the docking controller, which computes
 remaining distance from wheel odometry and the station's configured docking pose.
 It commands at most 0.018 m/s, enters precision docking through the final 0.10 m,
 and reduces speed proportionally near the target. `/docking_distance` is remaining
@@ -275,8 +316,10 @@ must remain inside the station acceptance region for one simulated second before
 at the process station.
 
 The tray is an idealized, collision-free fork visual whose detachable joint
-carries the load. Shelf rails, carrier base/rim, wafer, chassis, wheels, and gantry
-have physical collision geometry. The fork simplification avoids Jetty's
+carries the load. Shelf rails, carrier base/rim, wafer, chassis, wheels, wand, and door
+have physical collision geometry. Nested reach tubes are visual only to avoid
+self-contact inside the telescoping mechanism; the cup and mast have collisions.
+The fork simplification avoids Jetty's
 parent/child contact restriction on reattachment. The wafer stays inside its
 carrier through gravity, friction, and the protective rim rather than a second
 joint that could create a closed attachment chain. See
@@ -308,21 +351,22 @@ motion deadlines. Relaunch after resolving a fault.
 | `/camera/image_raw` | sensor_msgs/Image | Forward QR camera |
 | `/down_camera/image_raw` | sensor_msgs/Image | Path camera |
 | `/detected_station` | std_msgs/String | Confirmed QR payload |
-| `/carrier_ready` | std_msgs/Bool | Loading and retraction complete |
+| `/carrier_ready` | std_msgs/Bool | Loaded, exited, wand stowed, door closed |
 | `/carrier_present` | std_msgs/Bool | Carrier attachment acknowledged |
 | `/carrier_delivered` | std_msgs/Bool | Supported delivery verified |
 | `/docking_distance` | std_msgs/Float64 | Signed remaining distance |
 | `/wafer_handler/state`, `/transport/state`, `/system/state` | std_msgs/String | Current states |
 | `/system/fault` | std_msgs/String | Fault reason |
 | `/system/start`, `/system/transport_enable` | std_msgs/Bool | Sequencing interlocks |
-| `/line/cmd_vel`, `/docking/cmd_vel` | geometry_msgs/Twist | Candidate commands |
-| `/line/valid`, `/qr/healthy`, `/docking/reached` | std_msgs/Bool | Processing/position checks |
+| `/cleanroom/cmd_vel`, `/line/cmd_vel`, `/docking/cmd_vel` | geometry_msgs/Twist | Candidate commands |
+| `/line/valid`, `/line/healthy`, `/qr/healthy`, `/docking/reached` | std_msgs/Bool | Processing/position checks |
 | `/docking/target` | std_msgs/String | Authorized destination |
-| `/gantry/joint_states`, `/robot/joint_states` | sensor_msgs/JointState | Actuator feedback |
-| `/actuators/{gantry_x,gantry_z,tray_y,tray_z}` | std_msgs/Float64 | Joint position targets |
+| `/door/open`, `/door/closed` | std_msgs/Bool | Measured door end positions |
+| `/door/joint_states`, `/robot/joint_states` | sensor_msgs/JointState | Actuator feedback |
+| `/actuators/{reach_1,reach_2,wand_x,wand_z,door_z,tray_y,tray_z}` | std_msgs/Float64 | Joint position targets |
 | `/attachments/{vacuum,carrier}/{attach,detach}` | std_msgs/Empty | Attachment commands |
 | `/attachments/{vacuum,carrier}/state` | std_msgs/String | `attached` / `detached` acknowledgement |
-| `/poses/{wafer,carrier}` | geometry_msgs/PoseStamped | Simulation model pose evidence |
+| `/poses/{wafer,carrier,transport_robot}` | geometry_msgs/PoseStamped | Simulation model pose evidence |
 
 The explicit unidirectional bridge mappings are in `config/bridge.yaml`.
 Jetty systems use `gz-sim-…-system` filenames and `gz::sim::systems::…` classes.
@@ -335,6 +379,8 @@ ros2 topic echo /cmd_vel
 ros2 topic echo /detected_station
 ros2 topic echo /transport/state
 ros2 topic echo /wafer_handler/state
+ros2 topic echo /door/joint_states
+ros2 topic echo /door/closed
 ros2 topic echo /odom
 ros2 topic echo /system/fault
 ros2 topic hz /camera/image_raw
@@ -350,17 +396,25 @@ Representative application messages, excluding ROS/Gazebo startup prefixes:
 
 ```text
 [Transport] Waiting for wafer carrier
-[WaferHandler] Homing gantry
-[WaferHandler] Moving to wafer
-[WaferHandler] Lowering vacuum wand
-[WaferHandler] Vacuum enabled
-[WaferHandler] Wafer pickup verified
-[WaferHandler] Lifting wafer
-[WaferHandler] Moving to carrier
-[WaferHandler] Lowering wafer into carrier
-[WaferHandler] Vacuum released
-[WaferHandler] Lifting wafer wand clear of carrier
-[WaferHandler] Transfer complete
+[WaferHandler] Preparing mobile wand and carrier
+[WaferHandler] OPEN_ENTRY
+[WaferHandler] TURN_IN
+[WaferHandler] ENTER_ROOM
+[WaferHandler] CLOSE_ENTRY
+[WaferHandler] MOVE_TO_WAFER
+[WaferHandler] LOWER_WAND
+[WaferHandler] VACUUM_ON
+[WaferHandler] VERIFY_VACUUM
+[WaferHandler] LIFT_PICKUP
+[WaferHandler] MOVE_TO_BOX
+[WaferHandler] LOWER
+[WaferHandler] VACUUM_OFF
+[WaferHandler] LIFT_RETRACT
+[WaferHandler] OPEN_EXIT
+[WaferHandler] EXIT_ROOM
+[WaferHandler] TURN_OUT
+[WaferHandler] CLOSE_EXIT
+[WaferHandler] TRANSFER_COMPLETE
 [Transport] Carrier detected
 [Transport] Destination: STATION_C
 [Transport] Beginning transport; following corridor
@@ -378,13 +432,14 @@ Representative application messages, excluding ROS/Gazebo startup prefixes:
 TRANSPORT COMPLETE
 ```
 
-Visually, the wand retracts and homes, traverses to the process output, lowers,
-picks up the silicon disc, lifts it, traverses to the carrier, lowers and releases
-it, then retracts. The robot raises its carrier clear of the loading support,
-follows the floor stripe past non-target stations, slows toward the chosen station,
-stops, extends and lowers its transfer tray, releases the carrier onto the rails,
-and retracts. The carrier and wafer remain on the shelf. QR observation order can
-vary with visibility; it must never cause delivery at a non-target station.
+Visually, the empty carrier lifts clear of its supports, the door rises, and the
+robot turns and drives into the room. The door closes. The robot's mounted wand
+extends to the wafer, picks it up, and places it inside the onboard carrier. The
+door rises again, the robot backs out and turns toward the line, and the door
+closes. The robot follows the stripe past non-target stations, slows at its
+chosen station, stops, extends and lowers the transfer tray, releases the loaded
+carrier onto the shelf rails, and retracts. QR observation order can vary with
+visibility; it must never cause delivery at a non-target station.
 
 ## Verification
 
@@ -404,10 +459,12 @@ bash wafer_transport_sim/scripts/verify_ubuntu.sh
 ```
 
 It validates SDF with `gz sdf -k`, launches separate A/B/C missions, then injects
-missing images, lost stripe, blocked vacuum attachment, and absent target QR.
+missing images, lost stripe, blocked vacuum attachment, absent target QR, and
+a door with its command bridge disabled.
 Each scenario starts and stops its own headless launch. Reports and simulator logs
 are written under `log/integration/`. The nominal runs require decoded camera QR,
-ordered handling states, zero premature motion, ≤10 mm docking error, and the
+ordered entry/pickup/exit states, door interlocks, authorized motion only,
+≤10 mm docking error, and the
 carrier and wafer still at the shelf after completion. Failure runs require a
 fault, fresh zero commands, and no false delivery success.
 
@@ -420,7 +477,7 @@ ros2 run wafer_transport_sim integration_check --scenario failed_pickup
 The image relay used for failure injection exists only in the integration runner.
 It forwards actual rendered images for nominal tests. The `bridge_config` launch
 argument lets the runner route images through this relay and disable vacuum attach
-commands in the failed-pickup test. Production launch has no injected sensor data.
+commands in the failed-pickup test or door commands in the stuck-door test. Production launch has no injected sensor data.
 
 The local controller tests execute actual controller methods against an in-memory
 ROS API substitute. They validate logical sequencing and faults, not real DDS,
@@ -438,6 +495,7 @@ inspection remains necessary to assess animation and presentation.
 | QR never accepted | Inspect forward image, sign visibility, and `minimum_qr_side_pixels`; do not replace camera decoding with station coordinates. |
 | Lost line | Inspect downward image; tune threshold/crop and lighting. Blank/dark frames intentionally stop transport. |
 | Vacuum timeout | Inspect `/attachments/vacuum/state`, `/poses/wafer`, and joint feedback. No motion state may be skipped to bypass a fault. |
+| Door or entry fault | Inspect `/door/joint_states`, `/poses/transport_robot`, `/robot/joint_states`, and `/system/fault`. Keep the doorway clear; do not bypass its interlocks. |
 | Delivery timeout | Inspect carrier pose, tray feedback, shelf alignment, and wafer retention. |
 | Bridge topic absent | Compare `gz topic -l` with `ros2 topic list` and `bridge.yaml`. |
 | Slow VM | Enable 3D acceleration; allow more integration wall time with `--timeout`. Motion timeouts use simulation time. |
@@ -469,7 +527,7 @@ Wafer-Transport-Demo/
     ├── models/
     │   ├── wafer/{model.config,model.sdf}
     │   ├── carrier/{model.config,model.sdf}
-    │   ├── gantry/{model.config,model.sdf}
+    │   ├── guillotine_door/{model.config,model.sdf}
     │   ├── transport_robot/{model.config,model.sdf}
     │   └── stations/{model.config,model.sdf}
     ├── config/{bridge.yaml,simulation.yaml}

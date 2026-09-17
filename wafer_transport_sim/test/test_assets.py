@@ -62,3 +62,31 @@ def test_dimensions_and_docking_poses_agree():
         p = stations.find(f".//visual[@name='{letter}_shelf_-0.054']/pose").text
         xyz = [float(v) for v in p.split()[:3]]
         assert abs(xyz[1] + .054 - (.12 + distance)) < 1e-9
+
+
+def test_mobile_wand_and_door_geometry_and_bridge():
+    robot = ET.parse(ROOT / 'models/transport_robot/model.sdf')
+    world = ET.parse(ROOT / 'worlds/wafer_transport.sdf')
+    door = ET.parse(ROOT / 'models/guillotine_door/model.sdf')
+    assert not (ROOT / 'models/gantry').exists()
+    vacuum = robot.find(".//plugin[@name='gz::sim::systems::DetachableJoint'][child_model='wafer']")
+    assert vacuum.findtext('parent_link') == 'wand'
+    for name in ('wand_x', 'wand_z'):
+        assert robot.find(f".//joint[@name='{name}']").get('type') == 'prismatic'
+    panel = door.find(".//link[@name='panel']")
+    joint = door.find(".//joint[@name='door_z']")
+    assert joint.get('type') == 'prismatic'
+    travel = float(joint.findtext('axis/limit/upper'))
+    assert travel == .52
+    # The open panel must clear the stowed robot, and must not slide into header.
+    center_z = float(panel.findtext('pose').split()[2])
+    thickness, _, height = map(float, panel.findtext('collision/geometry/box/size').split())
+    assert center_z - height/2 + travel > .50
+    header = world.find(".//collision[@name='loading_header_collision']")
+    header_x = float(header.findtext('pose').split()[0])
+    header_thickness = float(header.findtext('geometry/box/size').split()[0])
+    assert header_x + header_thickness/2 < .9094 - thickness/2
+    topics = {m['ros_topic_name'] for m in yaml.safe_load((ROOT / 'config/bridge.yaml').read_text())}
+    assert {'/actuators/door_z', '/door/joint_states', '/poses/transport_robot',
+            '/actuators/wand_x', '/actuators/wand_z'} <= topics
+    assert not any('gantry' in t for t in topics)

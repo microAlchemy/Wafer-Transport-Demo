@@ -24,6 +24,7 @@ from std_msgs.msg import String, Bool
 import yaml
 from .common import DemoNode, LATCHED
 from .core import placed
+from .wafer_handler import STEPS, ROOM_MOTION, PICKUP
 
 
 class Observer(DemoNode):
@@ -33,6 +34,7 @@ class Observer(DemoNode):
         self.destination = destination
         self.scenario = scenario
         self.history = {'/wafer_handler/state': [], '/transport/state': []}
+        self.handler_changed = 0.
         self.qrs = set()
         self.frames = {'camera': 0, 'down_camera': 0}
         self.errors = []
@@ -49,6 +51,9 @@ class Observer(DemoNode):
         self.watch('/odom', Odometry)
         self.watch_pose('carrier')
         self.watch_pose('wafer')
+        self.watch_pose('transport_robot')
+        self.watch('/door/open', Bool, LATCHED)
+        self.watch('/door/closed', Bool, LATCHED)
         for topic in self.history:
             self.create_subscription(String, topic, lambda msg, t=topic: self.state_msg(t, msg), LATCHED)
         self.create_subscription(String, '/detected_station', lambda m: self.qrs.add(m.data), 10)
@@ -61,6 +66,8 @@ class Observer(DemoNode):
     def state_msg(self, topic, msg):
         if not self.history[topic] or self.history[topic][-1] != msg.data:
             self.history[topic].append(msg.data)
+            if topic == '/wafer_handler/state':
+                self.handler_changed = self.now()
         self.values[topic] = msg
 
     def image(self, name, msg):
@@ -83,8 +90,17 @@ class Observer(DemoNode):
     def check(self):
         cmd = self.values.get('/cmd_vel', Twist())
         moving = abs(cmd.linear.x) + abs(cmd.angular.z) > 1e-5
-        if moving and not self.value('/carrier_ready'):
-            self.errors.append('Motion before carrier_ready')
+        handler = self.value('/wafer_handler/state')
+        if moving and not self.value('/carrier_ready') and handler not in ROOM_MOTION:
+            self.errors.append('Motion outside authorized room maneuver before carrier_ready')
+        settled = self.now() - self.handler_changed > .2  # Separate DDS topics arrive independently.
+        if settled and handler in ROOM_MOTION and not self.value('/door/open'):
+            self.errors.append('Robot passage without fully open door')
+        if settled and handler in PICKUP and not self.value('/door/closed'):
+            self.errors.append('Pickup without closed door')
+        if handler in PICKUP and self.fresh('/poses/transport_robot'):
+            if self.position('transport_robot')[0] > .67:
+                self.errors.append('Pickup did not take place inside room')
         if self.value('/transport/state') == 'DROP_CARRIER' and self.drop_error is None:
             positions = {'STATION_A': .28, 'STATION_B': .60, 'STATION_C': .92}
             if '/odom' in self.values:
@@ -123,9 +139,7 @@ class Observer(DemoNode):
                 self.errors.append('Carrier not supported on destination shelf')
             if not placed(self.position('wafer'), (1.145, y, .140), .022, .010):
                 self.errors.append('Wafer not retained inside delivered carrier')
-            expected = ['HOME', 'MOVE_TO_WAFER', 'LOWER_WAND', 'VACUUM_ON',
-                        'VERIFY_VACUUM', 'LIFT_PICKUP', 'MOVE_TO_BOX', 'LOWER',
-                        'VACUUM_OFF', 'LIFT_RETRACT', 'TRANSFER_COMPLETE']
+            expected = list(STEPS)
             states = self.history['/wafer_handler/state']
             if [s for s in states if s != 'IDLE'] != expected:
                 self.errors.append('Wafer state order incomplete or incorrect')
@@ -142,7 +156,7 @@ def main(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--destination', choices=['STATION_A', 'STATION_B', 'STATION_C'], default='STATION_C')
     parser.add_argument('--scenario', choices=['nominal', 'missing_images', 'lost_line',
-                                              'failed_pickup', 'missing_target'], default='nominal')
+                                              'failed_pickup', 'missing_target', 'stuck_door'], default='nominal')
     parser.add_argument('--timeout', type=float, default=420)
     parser.add_argument('--output', default='log/integration')
     opts = parser.parse_args(args)
@@ -156,6 +170,8 @@ def main(args=None):
             entry['ros_topic_name'] = '/test' + entry['ros_topic_name']
     if opts.scenario == 'failed_pickup':
         config = [entry for entry in config if entry['ros_topic_name'] != '/attachments/vacuum/attach']
+    if opts.scenario == 'stuck_door':
+        config = [entry for entry in config if entry['ros_topic_name'] != '/actuators/door_z']
     rclpy.init()
     node = Observer(opts.destination, opts.scenario)
     process = None

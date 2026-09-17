@@ -72,6 +72,8 @@ class DemoNode(Node):
 
     def watch_joints(self, topic):
         def receive(msg):
+            self.values[topic] = msg
+            self.received[topic] = self.now()
             for name, position in zip(msg.name, msg.position):
                 key = name.split('::')[-1]
                 self.joints[key] = position

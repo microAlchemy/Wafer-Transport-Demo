@@ -23,8 +23,8 @@
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-- ros_topic_name: /gantry/joint_states
-  gz_topic_name: /gantry/joint_states
+- ros_topic_name: /door/joint_states
+  gz_topic_name: /door/joint_states
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
@@ -33,13 +33,13 @@
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
-- ros_topic_name: /actuators/gantry_x
-  gz_topic_name: /actuators/gantry_x
+- ros_topic_name: /actuators/wand_x
+  gz_topic_name: /actuators/wand_x
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
-- ros_topic_name: /actuators/gantry_z
-  gz_topic_name: /actuators/gantry_z
+- ros_topic_name: /actuators/wand_z
+  gz_topic_name: /actuators/wand_z
   ros_type_name: std_msgs/msg/Float64
   gz_type_name: gz.msgs.Double
   direction: ROS_TO_GZ
@@ -93,3 +93,23 @@
   ros_type_name: geometry_msgs/msg/PoseStamped
   gz_type_name: gz.msgs.Pose
   direction: GZ_TO_ROS
+- ros_topic_name: /actuators/door_z
+  gz_topic_name: /actuators/door_z
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /poses/transport_robot
+  gz_topic_name: /poses/transport_robot
+  ros_type_name: geometry_msgs/msg/PoseStamped
+  gz_type_name: gz.msgs.Pose
+  direction: GZ_TO_ROS
+- ros_topic_name: /actuators/reach_1
+  gz_topic_name: /actuators/reach_1
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/reach_2
+  gz_topic_name: /actuators/reach_2
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ

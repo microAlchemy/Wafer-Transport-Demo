@@ -16,13 +16,15 @@ class SystemManager(DemoNode):
         self.watch('/wafer_handler/state', String, LATCHED)
         self.watch('/transport/state', String, LATCHED)
         self.watch('/odom', Odometry)
-        self.watch('/gantry/joint_states', JointState)
+        self.watch('/door/joint_states', JointState)
         self.watch('/robot/joint_states', JointState)
         self.watch('/line/valid', Bool)
         self.watch('/qr/healthy', Bool)
         self.watch_attachment('vacuum')
         self.watch_pose('wafer')
         self.watch_pose('carrier')
+        self.watch_pose('transport_robot')
+        self.watch('/door/closed', Bool, LATCHED)
         self.change('WAIT_FOR_SIMULATOR')
         self.wall_started = time.monotonic()
         self.param('startup_timeout_wall', 90.0)
@@ -34,10 +36,11 @@ class SystemManager(DemoNode):
         self.send('/system/state', String, self.state, True)
         if self.state == 'WAIT_FOR_SIMULATOR':
             ready = (self.now() > 0 and self.fresh(
-                '/odom', '/gantry/joint_states', '/robot/joint_states',
-                '/line/valid', '/qr/healthy', '/poses/wafer', '/poses/carrier') and
+                '/odom', '/door/joint_states', '/robot/joint_states',
+                '/line/valid', '/qr/healthy', '/poses/wafer', '/poses/carrier',
+                '/poses/transport_robot', '/door/closed') and
                 self.value('/line/valid') and self.value('/qr/healthy') and
-                self.value('/carrier_present') and self.attachment('vacuum') == 'detached')
+                self.value('/door/closed') and self.value('/carrier_present') and self.attachment('vacuum') == 'detached')
             if ready:
                 self.send('/system/start', Bool, True, True)
                 self.change('HANDLING_WAFER')

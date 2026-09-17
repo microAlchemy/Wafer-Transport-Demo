@@ -4,6 +4,7 @@ from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, String, Float64
 from rcl_interfaces.msg import SetParametersResult
 from .common import DemoNode, LATCHED, run
+from .wafer_handler import ROOM_MOTION
 from .core import STATIONS, MOVING, destination_error, select_command, placed
 
 
@@ -18,6 +19,10 @@ class TransportController(DemoNode):
         self.watch('/carrier_ready', Bool, LATCHED)
         self.watch('/system/transport_enable', Bool, LATCHED)
         self.watch('/system/fault', String, LATCHED)
+        self.watch('/system/start', Bool, LATCHED)
+        self.watch('/wafer_handler/state', String, LATCHED)
+        self.watch('/cleanroom/cmd_vel', Twist)
+        self.watch('/door/open', Bool, LATCHED)
         for topic, kind in [('/odom', Odometry), ('/line/cmd_vel', Twist),
                             ('/line/valid', Bool), ('/qr/healthy', Bool),
                             ('/docking/cmd_vel', Twist), ('/docking/reached', Bool),
@@ -27,6 +32,7 @@ class TransportController(DemoNode):
         self.watch_joints('/robot/joint_states')
         self.watch_pose('carrier')
         self.watch_pose('wafer')
+        self.watch_pose('transport_robot')
         self.create_subscription(String, '/detected_station', self.detected, 10)
         self.add_on_set_parameters_callback(self.parameters)
         self.pub('/cmd_vel', Twist)
@@ -38,6 +44,7 @@ class TransportController(DemoNode):
         self.drop_phase = 'EXTEND'
         self.stable_since = None
         self.started = None
+        self.room_interlock_since = None
         self.change('WAIT_FOR_CARRIER', '[Transport] Waiting for wafer carrier')
         self.create_timer(0.05, self.tick)
 
@@ -58,12 +65,10 @@ class TransportController(DemoNode):
                 self.pending_qr = msg.data
 
     def carrier_on_robot(self):
-        if not self.fresh('/poses/carrier', '/odom'):
+        if not self.fresh('/poses/carrier', '/poses/transport_robot'):
             return False
-        odom = self.values['/odom']
-        p = odom.pose.pose.position
-        return placed(self.position('carrier'),
-                      (1.025 - p.y, 0.12 + p.x, 0.154), 0.02, 0.012)
+        x, y, _ = self.position('transport_robot')
+        return placed(self.position('carrier'), (x, y, .154), .02, .012)
 
     def tick(self):
         self.send('/transport/state', String, self.state, True)
@@ -90,6 +95,11 @@ class TransportController(DemoNode):
                 self.fault('Carrier retention verification failed')
             elif self.values['/odom'].pose.pose.position.x > self.distances[self.target] + self.get_parameter('position_tolerance').value:
                 self.fault('Passed destination without a verified dock')
+        # Only this node publishes /cmd_vel, including pre-loading room travel.
+        room_active = (self.state == 'WAIT_FOR_CARRIER' and self.value('/system/start') and
+                       self.value('/wafer_handler/state') not in {'IDLE', 'TRANSFER_COMPLETE'})
+        if room_active and not self.fresh('/cleanroom/cmd_vel', '/wafer_handler/state', '/odom'):
+            self.fault('Mobile pickup controller or odometry heartbeat lost')
         self.step()
         if self.state == 'FAULT':
             for name in ('tray_y', 'tray_z'):
@@ -104,6 +114,24 @@ class TransportController(DemoNode):
                 self.fault('Docking feedback lost')
         v, w = select_command(self.state, (line.linear.x, line.angular.z),
                               (dock.linear.x, dock.angular.z), fresh)
+        if self.state == 'WAIT_FOR_CARRIER' and self.value('/system/start') and self.value('/wafer_handler/state') in ROOM_MOTION:
+            safe = (self.fresh('/cleanroom/cmd_vel', '/wafer_handler/state', '/odom', '/door/open') and
+                    self.value('/door/open') and self.initialized and
+                    self.attachment('carrier') == 'attached' and self.carrier_on_robot())
+            if safe:
+                self.room_interlock_since = None
+                candidate = self.values['/cleanroom/cmd_vel']
+                v, w = candidate.linear.x, candidate.angular.z
+            else:
+                v, w = 0., 0.
+                # Door flags and state travel on separate DDS topics. Always
+                # stop immediately, allowing a short interval for coherent data.
+                if self.room_interlock_since is None:
+                    self.room_interlock_since = self.now()
+                elif self.now() - self.room_interlock_since > .5:
+                    self.fault('Cleanroom motion interlock lost')
+        else:
+            self.room_interlock_since = None
         cmd = Twist()
         cmd.linear.x, cmd.angular.z = v, w
         self.pub('/cmd_vel', Twist).publish(cmd)
