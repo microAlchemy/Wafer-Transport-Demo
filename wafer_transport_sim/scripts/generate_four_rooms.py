@@ -36,7 +36,7 @@ def generate():
     floor = el(world, 'model', name='loop_floor')
     el(floor, 'static', 'true')
     body = link(floor, 'structure')
-    solid(body, 'floor', (4.8, 3.2, .03), (0, 0, -.015), color=WHITE)
+    solid(body, 'floor', (4.8, 3.6, .03), (0, 0, -.015), color=WHITE)
     for i, (a, b) in enumerate(zip(PATH, PATH[1:])):
         length = math.dist(a, b)
         solid(body, f'tape_{i}', (length+.001, .018, .0005),
@@ -46,6 +46,12 @@ def generate():
     for dy in (-.054, .054):
         solid(body, 'loading_rail_' + str(dy), (.15, .016, .008),
               (START[0], START[1]+dy, .142), color=SILVER)
+
+    logo_img = Image.new('RGB', (200, 100), '#0c2340')
+    d = ImageDraw.Draw(logo_img)
+    d.rectangle([5, 5, 195, 95], outline='#38bdf8', width=3)
+    d.text((15, 35), 'MICROALCHEMY', fill='#38bdf8')
+    logo_img.save(ROOT / 'textures' / 'microalchemy_logo.png')
 
     def include(name, xyz, heading=0.):
         inc = el(world, 'include')
@@ -102,6 +108,9 @@ def generate():
                        (sign_x, sign_y, .25), (0, 0, normal), texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
                        (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
+        textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
+                       (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
+                       (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
     include('transport_robot', (*START, 0.))
     include('carrier', (*START, .15))
     include('wafer', (ROOMS[0].table[0], ROOMS[0].table[1], .156))

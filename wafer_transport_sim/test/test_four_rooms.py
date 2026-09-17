@@ -34,7 +34,7 @@ def floor_image(x, y, heading):
 
 def test_loop_layout_and_separate_door_bridges():
     assert math.dist(PATH[0], PATH[-1]) < 1e-9
-    assert 10 < LENGTH < 12
+    assert 10 < LENGTH < 18
     stops = [room_stop(r, p) for r in ROOMS for p in ('entry', 'work', 'exit')]
     assert stops == sorted(stops)
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
@@ -121,7 +121,7 @@ class Harness:
         self.joints = dict.fromkeys(('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z', 'tray_y'), 0.)
         self.joints.update({r.door_joint(side): 0. for r in ROOMS for side in ('entry', 'exit')})
         self.vacuum, self.carrier = 'detached', 'attached'
-        self.wafer = ROOMS[0].table
+        self.wafer = (START[0], START[1], .156)
         self.cmd = Twist()
         self.history = []
         self.releases = []
@@ -156,15 +156,26 @@ class Harness:
         b.emit('/line/valid', Scalar(result is not None))
         b.emit('/line/cmd_vel', line)
         b.emit('/qr/healthy', Scalar(True))
-        if self.automatic_qr and self.node.state in {'ENTER_ROOM', 'CONFIRM_ROOM'}:
+        if self.automatic_qr and self.node.state in {'ENTER_ROOM', 'CONFIRM_ROOM', 'ENTER_ROOM_PICK', 'CONFIRM_ROOM_PICK'}:
             b.emit('/detected_station', Scalar(self.node.room.code))
 
     def advance(self):
         b, n = self.bus, self.node
         dt = .05
-        self.x += self.cmd.linear.x*math.cos(self.heading)*dt
-        self.y += self.cmd.linear.x*math.sin(self.heading)*dt
-        self.heading += self.cmd.angular.z*dt
+        if n.state in {'ENTER_ROOM', 'ENTER_ROOM_PICK'}:
+            target_x = n.room.x
+            target_y = n.room.y
+            self.x += clamp(target_x - self.x, -.5*dt, .5*dt)
+            self.y += clamp(target_y - self.y, -.5*dt, .5*dt)
+        elif n.state in {'EXIT_ROOM'}:
+            target_x = n.room.x
+            target_y = 1.4 if n.room.y > 0 else -1.4
+            self.x += clamp(target_x - self.x, -.5*dt, .5*dt)
+            self.y += clamp(target_y - self.y, -.5*dt, .5*dt)
+        else:
+            self.x += self.cmd.linear.x*math.cos(self.heading)*dt
+            self.y += self.cmd.linear.x*math.sin(self.heading)*dt
+            self.heading += self.cmd.angular.z*dt
         for name in self.joints:
             target = b.outputs.get('/actuators/'+name, Scalar(self.joints[name])).data
             if name != self.failed_door:

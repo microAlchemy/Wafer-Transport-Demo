@@ -100,6 +100,20 @@
           </friction>
         </surface>
       </collision>
+      <visual name="logo">
+        <pose>0 0 0.0251 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>0.1 0.1 0.0001</size>
+          </box>
+        </geometry>
+        <material>
+          <script>
+            <uri>file://textures</uri>
+            <name>microalchemy_logo.svg</name>
+          </script>
+        </material>
+      </visual>
       <visual name="camera_mast">
         <pose>0.077 0 0.105 0 0 0</pose>
         <geometry>
