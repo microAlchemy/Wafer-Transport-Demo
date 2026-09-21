@@ -53,6 +53,12 @@ def generate():
     d.text((15, 35), 'MICROALCHEMY', fill='#38bdf8')
     logo_img.save(ROOT / 'textures' / 'microalchemy_logo.png')
 
+    logo_img = Image.new('RGB', (200, 100), '#0c2340')
+    d = ImageDraw.Draw(logo_img)
+    d.rectangle([5, 5, 195, 95], outline='#38bdf8', width=3)
+    d.text((15, 35), 'MICROALCHEMY', fill='#38bdf8')
+    logo_img.save(ROOT / 'textures' / 'microalchemy_logo.png')
+
     def include(name, xyz, heading=0.):
         inc = el(world, 'include')
         el(inc, 'uri', 'model://' + name)
@@ -108,6 +114,9 @@ def generate():
                        (sign_x, sign_y, .25), (0, 0, normal), texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
                        (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
+        textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
+                       (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
+                       (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
                        (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
                        (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
