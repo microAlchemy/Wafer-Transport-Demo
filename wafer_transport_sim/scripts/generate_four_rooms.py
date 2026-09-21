@@ -53,15 +53,9 @@ def generate():
     d.text((15, 35), 'MICROALCHEMY', fill='#38bdf8')
     logo_img.save(ROOT / 'textures' / 'microalchemy_logo.png')
 
-    logo_img = Image.new('RGB', (200, 100), '#0c2340')
-    d = ImageDraw.Draw(logo_img)
-    d.rectangle([5, 5, 195, 95], outline='#38bdf8', width=3)
-    d.text((15, 35), 'MICROALCHEMY', fill='#38bdf8')
-    logo_img.save(ROOT / 'textures' / 'microalchemy_logo.png')
-
-    def include(name, xyz, heading=0.):
+    def include(name, xyz, heading=0., resource=None):
         inc = el(world, 'include')
-        el(inc, 'uri', 'model://' + name)
+        el(inc, 'uri', 'model://' + (resource or name))
         el(inc, 'name', name)
         pose(inc, (*xyz, 0, 0, heading))
 
@@ -86,6 +80,7 @@ def generate():
             door = ET.parse(ROOT/'models/guillotine_door/model.sdf').getroot()
             door.find('model').set('name', name)
             door.find(".//joint[@name='door_z']").set('name', room.door_joint(side))
+            door.find('.//joint/axis/limit/velocity').text = '0.20'
             ctrl = door.find(".//plugin[@name='gz::sim::systems::JointPositionController']")
             ctrl.find('joint_name').text = room.door_joint(side)
             ctrl.find('topic').text = '/actuators/' + room.door_joint(side)
@@ -108,7 +103,7 @@ def generate():
         action = ('SOURCE', 'TRANSFER', 'TRANSFER', 'DESTINATION')[room.number-1]
         ImageDraw.Draw(label).text((8, 18), f'ROOM {room.number} / {action} / CLASS 100', fill='#173b50')
         label.resize((1020, 150)).save(ROOT/f'textures/room_{room.number}_label.png')
-        sign_x, sign_y = room.x + room.direction*.28, room.y + room.direction*.14
+        sign_x, sign_y = room.x + room.direction*.28, room.y + room.direction*.10
         normal = room.heading + math.pi
         textured_plane(structure, 'room_qr', f'room_{room.number}_qr.png', .16, .16,
                        (sign_x, sign_y, .25), (0, 0, normal), texture_prefix='../textures/')
@@ -117,10 +112,12 @@ def generate():
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
                        (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
                        (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
-        textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
-                       (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
-                       (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
-    include('transport_robot', (*START, 0.))
+    robot = ET.parse(ROOT/'models/transport_robot/model.sdf').getroot()
+    camera = robot.find(".//sensor[@name='forward_camera']/camera/image")
+    camera.find('width').text = '640'
+    camera.find('height').text = '480'
+    save_model('transport_robot_four_rooms', robot)
+    include('transport_robot', (*START, 0.), resource='transport_robot_four_rooms')
     include('carrier', (*START, .15))
     include('wafer', (ROOMS[0].table[0], ROOMS[0].table[1], .156))
     gui = el(world, 'gui', fullscreen='false')

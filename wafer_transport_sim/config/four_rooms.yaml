@@ -1,21 +1,22 @@
 /**:
   ros__parameters:
     use_sim_time: true
-    sensor_timeout: 5.0
+    sensor_timeout: 1.0
     state_timeout: 60.0
 transport_controller:
   ros__parameters:
     route_speed: 0.20
     room_speed: 0.15
     turn_speed: 0.55
-    door_speed: 0.40
+    door_speed: 0.18
+    qr_timeout: 5.0
     mission_timeout: 600.0
     startup_timeout_wall: 90.0
     intermediate_transfers: true
     placement_hold: 1.0
 line_follower:
   ros__parameters:
-    linear_speed: 0.08
+    linear_speed: 0.20
     kp: 0.004
     max_angular_speed: 0.6
     threshold: 55

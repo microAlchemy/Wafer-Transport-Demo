@@ -34,10 +34,15 @@ def floor_image(x, y, heading):
 
 def test_loop_layout_and_separate_door_bridges():
     assert math.dist(PATH[0], PATH[-1]) < 1e-9
-    assert 10 < LENGTH < 18
+    assert 10 < LENGTH < 12
     stops = [room_stop(r, p) for r in ROOMS for p in ('entry', 'work', 'exit')]
     assert stops == sorted(stops)
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
+    floor = world.find(".//collision[@name='floor_collision']/geometry/box/size")
+    fx, fy, _ = map(float, floor.text.split())
+    assert all(abs(x)+.15 < fx/2 and abs(y)+.15 < fy/2 for x, y in PATH)
+    source_pose = list(map(float, world.findtext(".//include[name='wafer']/pose").split()))
+    assert source_pose[:2] == list(ROOMS[0].table[:2])
     assert len(world.findall('.//include')) == 11  # robot, carrier, wafer, eight doors
     names = [i.findtext('name') for i in world.findall('.//include')]
     assert len(names) == len(set(names))
@@ -56,18 +61,25 @@ def test_loop_layout_and_separate_door_bridges():
 
 
 @pytest.mark.parametrize('room', ROOMS)
-def test_room_qr_decodes_from_approach(room):
+@pytest.mark.parametrize('before_stop', [0., .08, .20])
+def test_room_qr_decodes_from_approach(room, before_stop):
     qr = cv2.imread(str(ROOT/f'textures/room_{room.number}_qr.png'))
     assert room.code in station_codes(cv2.QRCodeDetector(), qr, 55.)
-    # Project the actual planar sign when 8 cm before the work stop. Its normal
-    # faces back along travel, so horizontal texture U points toward image right.
-    focal = 480/math.tan(1.7/2)
-    depth = .28+.08-.095
-    corners = [[480+focal*(offset-.14)/depth, 360-focal*z/depth]
-               for offset, z in [(-.08, .08), (.08, .08), (.08, -.08), (-.08, -.08)]]
+    world = ET.parse(ROOT/'worlds/four_rooms.sdf')
+    sign = world.find(f".//model[@name='room_{room.number}']//visual[@name='room_qr']")
+    sx, sy, sz, *_ = map(float, sign.findtext('pose').split())
+    sw, sh = map(float, sign.findtext('geometry/plane/size').split())
+    robot = ET.parse(ROOT/'models/transport_robot_four_rooms/model.sdf')
+    camera = robot.find(".//sensor[@name='forward_camera']/camera")
+    iw, ih = (int(camera.findtext('image/'+name)) for name in ('width', 'height'))
+    focal = iw/2/math.tan(float(camera.findtext('horizontal_fov'))/2)
+    depth = room.direction*(sx-room.x)+before_stop-.095
+    offset = room.direction*(sy-room.y)
+    corners = [[iw/2+focal*(u-offset)/depth, ih/2-focal*(sz-.25+v)/depth]
+               for u, v in [(-sw/2, sh/2), (sw/2, sh/2), (sw/2, -sh/2), (-sw/2, -sh/2)]]
     h, w = qr.shape[:2]
     matrix = cv2.getPerspectiveTransform(np.float32([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]]), np.float32(corners))
-    image = cv2.warpPerspective(qr, matrix, (960, 720), borderValue=(240, 240, 240))
+    image = cv2.warpPerspective(qr, matrix, (iw, ih), borderValue=(240, 240, 240))
     assert room.code in station_codes(cv2.QRCodeDetector(), image, 55.)
     confirmation = DetectionFilter(3, ROOM_CODES)
     assert [confirmation.update(room.code) for _ in range(3)] == ['', '', room.code]
@@ -115,14 +127,18 @@ class Harness:
     def __init__(self, bus):
         self.bus = bus
         self.node = bus.four_room_controller.FourRoomController()
-        self.node.params['state_timeout'] = 60.
+        cfg = yaml.safe_load((ROOT/'config/four_rooms.yaml').read_text())
+        self.node.params.update(cfg['/**']['ros__parameters'])
+        self.node.params.update(cfg['transport_controller']['ros__parameters'])
+        self.line_speed = cfg['line_follower']['ros__parameters']['linear_speed']
         self.x, self.y = START
         self.heading = 0.
         self.joints = dict.fromkeys(('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z', 'tray_y'), 0.)
         self.joints.update({r.door_joint(side): 0. for r in ROOMS for side in ('entry', 'exit')})
         self.vacuum, self.carrier = 'detached', 'attached'
-        self.wafer = (START[0], START[1], .156)
+        self.wafer = ROOMS[0].table
         self.cmd = Twist()
+        self.applied = Twist()
         self.history = []
         self.releases = []
         self.automatic_qr = True
@@ -133,7 +149,7 @@ class Harness:
     def feedback(self):
         b = self.bus
         odom = Odometry()
-        odom.twist.twist = self.cmd
+        odom.twist.twist = self.applied
         # Deliberately biased wheel yaw; room alignment uses a consistent world frame.
         odom.pose.pose.orientation.z = math.sin((self.heading+.25)/2)
         odom.pose.pose.orientation.w = math.cos((self.heading+.25)/2)
@@ -148,7 +164,7 @@ class Harness:
                 b.emit(f'/doors/room_{r.number}/{side}/joint_states', NS(name=[name], position=[self.joints[name]]))
         b.emit('/attachments/vacuum/state', Scalar(self.vacuum))
         b.emit('/attachments/carrier/state', Scalar(self.carrier))
-        result = None if self.blank else line_command(floor_image(self.x, self.y, self.heading), .08, .004, .6, 55, .35)
+        result = None if self.blank else line_command(floor_image(self.x, self.y, self.heading), self.line_speed, .004, .6, 55, .35)
         line = Twist()
         if result:
             line.linear.x, line.angular.z = result
@@ -156,30 +172,22 @@ class Harness:
         b.emit('/line/valid', Scalar(result is not None))
         b.emit('/line/cmd_vel', line)
         b.emit('/qr/healthy', Scalar(True))
-        if self.automatic_qr and self.node.state in {'ENTER_ROOM', 'CONFIRM_ROOM', 'ENTER_ROOM_PICK', 'CONFIRM_ROOM_PICK'}:
+        if self.automatic_qr and self.node.state in {'ENTER_ROOM', 'CONFIRM_ROOM'}:
             b.emit('/detected_station', Scalar(self.node.room.code))
 
     def advance(self):
         b, n = self.bus, self.node
         dt = .05
-        if n.state in {'ENTER_ROOM', 'ENTER_ROOM_PICK'}:
-            target_x = n.room.x
-            target_y = n.room.y
-            self.x += clamp(target_x - self.x, -.5*dt, .5*dt)
-            self.y += clamp(target_y - self.y, -.5*dt, .5*dt)
-        elif n.state in {'EXIT_ROOM'}:
-            target_x = n.room.x
-            target_y = 1.4 if n.room.y > 0 else -1.4
-            self.x += clamp(target_x - self.x, -.5*dt, .5*dt)
-            self.y += clamp(target_y - self.y, -.5*dt, .5*dt)
-        else:
-            self.x += self.cmd.linear.x*math.cos(self.heading)*dt
-            self.y += self.cmd.linear.x*math.sin(self.heading)*dt
-            self.heading += self.cmd.angular.z*dt
+        self.applied.linear.x += clamp(self.cmd.linear.x-self.applied.linear.x, -.08*dt, .08*dt)
+        self.applied.angular.z += clamp(self.cmd.angular.z-self.applied.angular.z, -.8*dt, .8*dt)
+        self.x += self.applied.linear.x*math.cos(self.heading)*dt
+        self.y += self.applied.linear.x*math.sin(self.heading)*dt
+        self.heading += self.applied.angular.z*dt
         for name in self.joints:
             target = b.outputs.get('/actuators/'+name, Scalar(self.joints[name])).data
             if name != self.failed_door:
-                self.joints[name] += clamp(target-self.joints[name], -.1*dt, .1*dt)
+                speed = .20 if name.startswith('room_') else .1
+                self.joints[name] += clamp(target-self.joints[name], -speed*dt, speed*dt)
         # Commands are events. Consume once so an old detach cannot override a
         # later attach. Support/attachment motion here is ideal, not physics.
         for name in ('carrier', 'vacuum'):
@@ -292,7 +300,7 @@ def test_final_delivery_requires_supported_wafer_and_low_velocity(ros):
         n.tick()
         assert not ros.outputs['/wafer_delivered'].data
     h.wafer = ROOMS[-1].table
-    h.cmd.linear.x = .02
+    h.applied.linear.x = .02
     for _ in range(30):
         ros.time += .05
         h.feedback()
@@ -311,3 +319,59 @@ def test_launch_keeps_command_owners_exclusive():
     legacy = ast.literal_eval(assignment.value.orelse)
     assert 'four_room_controller' in new and 'transport_controller' not in new
     assert 'transport_controller' in legacy and 'four_room_controller' not in legacy
+
+
+def test_delayed_qr_does_not_interrupt_camera_steered_entry(ros):
+    h = Harness(ros)
+    h.automatic_qr = False
+    for _ in range(1200):
+        h.advance()
+        if h.node.state == 'ENTER_ROOM':
+            break
+    assert h.node.state == 'ENTER_ROOM'
+    h.node.received['/qr/healthy'] -= 2.
+    h.node.tick()
+    assert h.node.state == 'ENTER_ROOM'
+    assert ros.outputs['/cmd_vel'].linear.x > 0.
+    assert not h.node.confirmed
+
+
+@pytest.mark.parametrize('recovers', [False, True])
+def test_stopped_room_checkpoint_requires_fresh_qr_decoder(ros, recovers):
+    h = Harness(ros)
+    h.automatic_qr = False
+    for _ in range(2000):
+        h.advance()
+        if h.node.state == 'CONFIRM_ROOM':
+            break
+        assert h.node.state != 'FAULT'
+    assert h.node.state == 'CONFIRM_ROOM'
+    # Even a previously confirmed ID cannot authorize handling with dead images.
+    h.node.confirmed = True
+    h.node.received['/qr/healthy'] -= 2.
+    h.node.tick()
+    assert h.node.state == 'CONFIRM_ROOM'
+    assert ros.outputs['/cmd_vel'].linear.x == 0.
+    ros.time += .2 if recovers else 5.1
+    h.feedback()
+    if not recovers:
+        h.node.received['/qr/healthy'] -= 6.
+    h.node.tick()
+    assert h.node.state == ('CLOSE_ENTRY' if recovers else 'FAULT')
+    assert not ros.outputs['/wafer_delivered'].data
+
+
+def test_configured_speed_reaches_wheel_command_and_brakes_near_stop(ros):
+    h = Harness(ros)
+    h.joints['tray_z'] = .004
+    h.feedback()
+    n = h.node
+    n.state = 'APPROACH_ENTRY'
+    n.drive(1.)
+    assert n.command.linear.x == pytest.approx(.20)
+    n.command = Twist()
+    n.drive(.05)
+    assert 0. < n.command.linear.x < .07
+    n.command = Twist()
+    n.drive(.003)
+    assert n.command.linear.x == 0.

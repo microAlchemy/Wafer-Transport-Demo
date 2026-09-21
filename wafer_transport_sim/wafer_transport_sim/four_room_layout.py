@@ -36,15 +36,15 @@ class Room:
 ROOMS = (Room(1, -.95, .75, 1), Room(2, .95, .75, 1),
          Room(3, .95, -.75, -1), Room(4, -.95, -.75, -1))
 ROOM_CODES = tuple(room.code for room in ROOMS)
-START = (-1.7, 1.4)
-RADIUS = 1.4
+START = (-1.7, .75)
+RADIUS = .5
 
 
 def route_points():
-    """Clockwise rounded rectangle outside rooms; coincident first/last point closes tape."""
-    result = [START, (1.7, 1.4)]
-    for cx, cy, start in [(1.7, 0., math.pi/2), (1.7, 0., 0.),
-                          (-1.7, 0., -math.pi/2), (-1.7, 0., -math.pi)]:
+    """Clockwise rounded rectangle; coincident first/last point closes tape."""
+    result = [START, (1.7, .75)]
+    for cx, cy, start in [(1.7, .25, math.pi/2), (1.7, -.25, 0.),
+                          (-1.7, -.25, -math.pi/2), (-1.7, .25, -math.pi)]:
         first = (cx + RADIUS*math.cos(start), cy + RADIUS*math.sin(start))
         if math.dist(result[-1], first) > 1e-9:
             result.append(first)
@@ -74,9 +74,8 @@ def project(x, y):
 
 
 def room_stop(room, phase):
-    door_x = room.door_x('entry' if phase == 'entry' else 'exit')
-    door_y = 1.4 if room.y > 0 else -1.4
-    return project(door_x, door_y)[0]
+    offset = {'entry': -.70, 'work': 0., 'exit': .70}[phase]
+    return project(room.x + room.direction*offset, room.y)[0]
 
 
 def door_clear(x, y, heading, door_x, extension=0.):

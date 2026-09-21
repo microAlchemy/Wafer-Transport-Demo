@@ -66,7 +66,7 @@ def generate_launch_description():
     if os.environ.get('GZ_SIM_RESOURCE_PATH'):
         paths.append(os.environ['GZ_SIM_RESOURCE_PATH'])
     return LaunchDescription([
-                DeclareLaunchArgument('gui', default_value='false', choices=['true', 'false']),
+        DeclareLaunchArgument('gui', default_value='true', choices=['true', 'false']),
         DeclareLaunchArgument('layout', default_value='four_rooms', choices=['four_rooms', 'single_room']),
         DeclareLaunchArgument('destination_station', default_value='',
                               description='Optional override of destination in config'),

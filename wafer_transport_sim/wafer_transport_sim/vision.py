@@ -24,8 +24,13 @@ def line_command(image, speed, kp, max_angular, threshold, crop_ratio):
 
 def station_codes(detector, image, minimum_side=70.0):
     ok, decoded, points, _ = detector.detectAndDecodeMulti(image)
-    if not ok:
-        return []
-    return [code for code, corners in zip(decoded, points) if code and
+    results = [code for code, corners in zip(decoded, points) if code and
             min(np.linalg.norm(corners[i] - corners[(i+1) % 4])
-                for i in range(4)) >= minimum_side]
+                for i in range(4)) >= minimum_side] if ok else []
+    if not results:
+        code, corners, _ = detector.detectAndDecode(image)
+        if code and corners is not None:
+            corners = corners.reshape(4, 2)
+            if min(np.linalg.norm(corners[i]-corners[(i+1) % 4]) for i in range(4)) >= minimum_side:
+                results.append(code)
+    return results

@@ -6,6 +6,30 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_link_visual_collision_and_sensor_names_are_unique():
+    # XML parsing accepts duplicate names; Gazebo rejects the entire world.
+    for path in ROOT.rglob('*.sdf'):
+        for link in ET.parse(path).findall('.//link'):
+            for kind in ('visual', 'collision', 'sensor'):
+                names = [element.get('name') for element in link.findall(kind)]
+                assert len(names) == len(set(names)), (path, link.get('name'), kind, names)
+
+
+def test_gui_is_enabled_by_default():
+    tree = ast.parse((ROOT / 'launch/demo.launch.py').read_text())
+    gui = next(node for node in ast.walk(tree) if isinstance(node, ast.Call) and
+               isinstance(node.func, ast.Name) and node.func.id == 'DeclareLaunchArgument' and
+               node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == 'gui')
+    assert next(ast.literal_eval(k.value) for k in gui.keywords if k.arg == 'default_value') == 'true'
+
+
+def test_each_room_keeps_one_logo():
+    world = ET.parse(ROOT / 'worlds/four_rooms.sdf')
+    for number in range(1, 5):
+        room = world.find(f".//model[@name='room_{number}']")
+        assert len(room.findall(".//visual[@name='microalchemy_logo']")) == 1
+
+
 def test_xml_and_local_resources():
     for path in [ROOT / 'package.xml', *ROOT.rglob('*.sdf'), *ROOT.rglob('*.config')]:
         document = ET.parse(path)

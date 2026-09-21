@@ -185,7 +185,7 @@
           <lower>-0.004</lower>
           <upper>0.535</upper>
           <effort>100</effort>
-          <velocity>0.12</velocity>
+          <velocity>0.20</velocity>
         </limit>
       </axis>
     </joint>

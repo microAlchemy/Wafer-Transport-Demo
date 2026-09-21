@@ -59,7 +59,7 @@ test -f wafer_transport_sim/worlds/four_rooms.sdf || {
 source /opt/ros/lyrical/setup.bash
 colcon build --base-paths ./wafer_transport_sim --symlink-install --packages-select wafer_transport_sim
 source install/local_setup.bash
-ros2 launch wafer_transport_sim demo.launch.py layout:=four_rooms
+ros2 launch wafer_transport_sim demo.launch.py layout:=four_rooms gui:=true
 )
 ```
 
@@ -80,6 +80,11 @@ ros2 launch wafer_transport_sim demo.launch.py config:=/absolute/path/four_rooms
 ros2 launch wafer_transport_sim demo.launch.py layout:=single_room destination_station:=STATION_C
 ```
 
+The GUI is enabled by default; `gui:=true` explicitly requests the window.
+The September 21 repair removes duplicate `microalchemy_logo` visuals that caused
+Gazebo to reject the world, while retaining one logo per room. The tape route
+passes through all four rooms and stays within the supporting floor.
+
 Headless operation still needs graphics support for the cameras. If the shared
 ZIP disappears after reboot, remount it using the block above. Build from the
 project directory with `--base-paths`, not from `~`, where old copies cause duplicate
@@ -94,7 +99,7 @@ package errors. Existing home-directory ZIPs may be stale.
 | ROOM_3 | Bottom right | +0.95, −0.75 | Carrier → table → carrier |
 | ROOM_4 | Bottom left | −0.95, −0.75 | Carrier → table |
 
-The floor is 4.8 × 3.2 m. Each room is 1.0 × 0.95 m and 1.10 m high, with
+The floor is 4.8 × 3.6 m. Each room is 1.0 × 0.95 m and 1.10 m high, with
 transparent walls and an open roof for viewing. The tape is 18 mm wide; the bends
 have a 0.50 m radius. The robot starts at (−1.70, +0.75), facing right. These are
 new demonstration dimensions chosen to fit four rooms, not the old single-room
@@ -107,9 +112,9 @@ after the robot is inside; the exit opens only after the wand is stowed. The exi
 door closes only after the entire robot/wand envelope is clear and odometry
 reports low velocity. All eight doors have separate commands and measured joints.
 
-The configured speeds are 0.08 m/s around the loop and 0.06 m/s through rooms;
+The configured speeds are 0.20 m/s around the loop and 0.15 m/s through rooms;
 steering, stopping, and turns reduce effective speed. Door targets ramp at
-0.10 m/s over a 0.52 m stroke. VM rendering can make wall-clock time considerably
+0.18 m/s over a 0.52 m stroke. The controller reserves braking distance before stops. VM rendering can make wall-clock time considerably
 longer than simulation time. The camera controls forward steering; model pose
 sets route progress and stop/clearance checks, while odometry verifies the robot
 has stopped. Four-room docking does **not** reuse the old straight-corridor
@@ -146,7 +151,11 @@ a stowed wand, and fresh wafer pose on the receiving support for at least one
 simulation second. Waiting alone never substitutes for successful motion.
 
 Each room has a real `ROOM_1` … `ROOM_4` QR texture. Three consistent decoded
-camera frames authorize that room's transfer. Wrong room IDs are ignored; reaching
+camera frames authorize that room's transfer. The four-room robot uses a 640 × 480
+forward camera at 8 Hz to reduce VM rendering and decoding load. Signs stay fully
+in view at the stopped room checkpoint. Entry still requires live downward-camera
+tape tracking; a delayed forward decoder is handled at the stationary checkpoint,
+with a five-second simulation-time recovery limit before a camera fault. Wrong room IDs are ignored; reaching
 the expected coordinates alone cannot authorize wafer handling. If a required
 image or pose goes stale, tape is lost during forward travel, attachment fails,
 a door is not open during passage, or a state times out, the controller enters
