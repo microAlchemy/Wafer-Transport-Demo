@@ -12,8 +12,8 @@ def line_command(image, speed, kp, max_angular, threshold, crop_ratio):
     count, labels, stats, centroids = cv2.connectedComponentsWithStats(mask)
     candidates = [i for i in range(1, count)
                   if stats[i, cv2.CC_STAT_AREA] >= 15 and
-                  stats[i, cv2.CC_STAT_HEIGHT] >= crop.shape[0] * 0.35 and
-                  stats[i, cv2.CC_STAT_WIDTH] < width * 0.5]
+                  stats[i, cv2.CC_STAT_HEIGHT] >= crop.shape[0] * 0.25 and
+                  stats[i, cv2.CC_STAT_WIDTH] < width * 0.9]
     if not candidates:
         return None
     # Prefer a continuous floor stripe, avoiding isolated dark shadows.

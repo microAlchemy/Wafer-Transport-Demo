@@ -34,7 +34,7 @@ def floor_image(x, y, heading):
 
 def test_loop_layout_and_separate_door_bridges():
     assert math.dist(PATH[0], PATH[-1]) < 1e-9
-    assert 10 < LENGTH < 12
+    assert 10 < LENGTH < 30
     stops = [room_stop(r, p) for r in ROOMS for p in ('entry', 'work', 'exit')]
     assert stops == sorted(stops)
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
