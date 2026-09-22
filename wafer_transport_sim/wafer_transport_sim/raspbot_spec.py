@@ -19,7 +19,7 @@ MOTOR_MAX_RAD_S = 245 * 2 * math.pi / 60
 PAN_LIMIT = math.pi / 2
 TILT_LIMIT = math.radians(55)
 CAMERA_PIVOT = (.082, 0., .10155)
-CAMERA_OFFSET = .025
+CAMERA_OFFSET = .030
 MISSION_CAMERA_TILT = -.35
 # Conservative mounted envelope: the extra downward camera extends the nose.
 REAR_CLEARANCE = .105

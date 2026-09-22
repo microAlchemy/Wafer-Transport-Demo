@@ -21,31 +21,46 @@ class Room:
 
     @property
     def work_heading(self):
-        return self.direction * math.pi / 2
+        # The robot remains outside and turns inward to operate the wand.
+        return -self.direction * math.pi / 2
+
+    @property
+    def route_y(self):
+        return self.y + self.direction * (HALF_DEPTH + CORRIDOR_WIDTH / 2)
 
     @property
     def table(self):
-        return self.x, self.y + self.direction * 0.25, 0.155
+        # Keep the table just inside the outside-facing service opening and
+        # within the 0.25 m reach of the wand parked on the exterior tape.
+        return self.x, self.y + self.direction * (HALF_DEPTH - 0.10), 0.155
 
     def door_x(self, side):
-        return self.x + self.direction * (-0.5 if side == "entry" else 0.5)
+        return self.x + self.direction * (-HALF_LENGTH if side == "entry" else HALF_LENGTH)
 
     def door_joint(self, side):
         return f"room_{self.number}_{side}_z"
 
 
-# Compact room placement.
+# Published facility dimensions.  Every room is 4 ft x 3 ft and adjacent
+# room walls are separated by a clear 1 ft corridor.
+ROOM_LENGTH = 1.2192
+ROOM_DEPTH = 0.9144
+ROOM_HEIGHT = 1.2192
+CORRIDOR_WIDTH = 0.3048
+HALF_LENGTH = ROOM_LENGTH / 2
+HALF_DEPTH = ROOM_DEPTH / 2
+
 ROOMS = (
-    Room(1, -0.70,  0.65,  1),
-    Room(2,  0.70,  0.65,  1),
-    Room(3,  0.70, -0.65, -1),
-    Room(4, -0.70, -0.65, -1),
+    Room(1, -1.0,  0.8,  1),
+    Room(2,  1.0,  0.8,  1),
+    Room(3,  1.0, -0.8, -1),
+    Room(4, -1.0, -0.8, -1),
 )
 
 ROOM_CODES = tuple(room.code for room in ROOMS)
 
-START = (-1.55, 0.65)
-RADIUS = 0.5
+START = (-1.9620, 0.8)
+RADIUS = CORRIDOR_WIDTH / 2
 
 
 def _fillet(p0, p1, p2, radius, samples=32):
@@ -121,90 +136,50 @@ def _fillet(p0, p1, p2, radius, samples=32):
 
 def route_points():
     """
-    Clockwise tape path around the four rooms.
+    Clockwise tape path around the outside of every room.
 
-    Room footprint assumptions from generate_four_rooms.py:
-      width: 1.00 m
-      top rooms:    y = 0.35 .. 1.30
-      bottom rooms: y = -1.30 .. -0.35
-
-    The bypass track stays approximately:
-      0.15 m outside the room side walls
-      0.25 m outside the top/bottom walls
+    This restores the earlier detour topology: up and around each top room,
+    down the right side, around each bottom room, then up the left side.  The
+    tape is centred in a 1 ft lane outside the room walls.
     """
 
-    r_main = 0.15
-    r_detour = 0.12
-
+    left, middle_left = -1.7620, -0.2380
+    middle_right, right = 0.2380, 1.7620
+    return_x = -2.20
+    top, bottom = 1.4096, -1.4096
     wps = [
-        # Start / left outer lane.
         (START, 0.0),
-
-        # Room 1 bypass.
-        ((-1.35,  0.65), r_detour),
-        ((-1.35,  1.55), r_detour),
-        ((-0.05,  1.55), r_detour),
-        ((-0.05,  0.65), r_detour),
-
-        # Gap between Rooms 1 and 2.
-        (( 0.05,  0.65), r_detour),
-
-        # Room 2 bypass.
-        (( 0.05,  1.55), r_detour),
-        (( 1.35,  1.55), r_detour),
-        (( 1.35,  0.65), r_detour),
-
-        # Right outer side.
-        (( 1.55,  0.65), r_main),
-        (( 1.55, -0.65), r_main),
-
-        # Room 3 bypass.
-        (( 1.35, -0.65), r_detour),
-        (( 1.35, -1.55), r_detour),
-        (( 0.05, -1.55), r_detour),
-        (( 0.05, -0.65), r_detour),
-
-        # Gap between Rooms 3 and 4.
-        ((-0.05, -0.65), r_detour),
-
-        # Room 4 bypass.
-        ((-0.05, -1.55), r_detour),
-        ((-1.35, -1.55), r_detour),
-        ((-1.35, -0.65), r_detour),
-
-        # Left outer side / return.
-        ((-1.55, -0.65), r_main),
+        ((left, ROOMS[0].y), RADIUS),
+        ((left, top), RADIUS),
+        ((middle_left, top), RADIUS),
+        ((middle_left, ROOMS[0].y), RADIUS),
+        ((middle_right, ROOMS[1].y), RADIUS),
+        ((middle_right, top), RADIUS),
+        ((right, top), RADIUS),
+        ((right, ROOMS[1].y), RADIUS),
+        ((right, ROOMS[2].y), RADIUS),
+        ((right, bottom), RADIUS),
+        ((middle_right, bottom), RADIUS),
+        ((middle_right, ROOMS[2].y), RADIUS),
+        ((middle_left, ROOMS[3].y), RADIUS),
+        ((middle_left, bottom), RADIUS),
+        ((left, bottom), RADIUS),
+        ((left, ROOMS[3].y), RADIUS),
+        ((return_x, ROOMS[3].y), RADIUS),
+        ((return_x, ROOMS[0].y), RADIUS),
         (START, 0.0),
     ]
-
     path = []
-
     for i, (point, radius) in enumerate(wps):
         if radius <= 0.0:
             if not path or math.dist(path[-1], point) > 1e-9:
                 path.append(point)
             continue
-
-        prev_point = wps[i - 1][0]
-        next_point = wps[(i + 1) % len(wps)][0]
-
-        pts = _fillet(
-            prev_point,
-            point,
-            next_point,
-            radius,
-            samples=32,
-        )
-
-        if path and math.dist(path[-1], pts[0]) < 1e-6:
-            path.extend(pts[1:])
-        else:
-            path.extend(pts)
-
-    # Ensure the loop is explicitly closed.
+        pts = _fillet(wps[i-1][0], point, wps[(i+1) % len(wps)][0],
+                      radius, samples=24)
+        path.extend(pts[1:] if path and math.dist(path[-1], pts[0]) < 1e-6 else pts)
     if math.dist(path[-1], path[0]) > 1e-9:
         path.append(path[0])
-
     return tuple(path)
 
 
@@ -252,6 +227,19 @@ def project(x, y):
     return best[1], best[0]
 
 
+def point_at(distance):
+    """Return a point on the closed tape loop at an along-route distance."""
+    distance %= LENGTH
+    accumulated = 0.0
+    for (ax, ay), (bx, by) in zip(PATH, PATH[1:]):
+        segment = math.hypot(bx-ax, by-ay)
+        if segment and accumulated + segment >= distance:
+            ratio = (distance-accumulated)/segment
+            return ax+ratio*(bx-ax), ay+ratio*(by-ay)
+        accumulated += segment
+    return PATH[0]
+
+
 def room_stop(room, phase):
     """
     Return a tape-distance stop near a room door/work location.
@@ -260,15 +248,19 @@ def room_stop(room, phase):
     the main transport robot directly on the wall.
     """
     offset = {
-        "entry": -0.65,
+        # Stop before the closed panel with the custom forward camera clear.
+        # In the 1 ft gap this is also the previous room's exit position.
+        "entry": -(HALF_LENGTH + 0.20),
         "work": 0.0,
-        "exit": 0.65,
+        "exit": HALF_LENGTH - 0.20,
     }[phase]
 
-    return project(
+    distance = project(
         room.x + room.direction * offset,
-        room.y,
+        room.route_y if phase == 'exit' else room.y,
     )[0]
+    # Cycle the side-mounted doors while stopped clear of their swept planes.
+    return distance
 
 
 def door_clear(x, y, heading, door_x, extension=0.0):
@@ -276,8 +268,8 @@ def door_clear(x, y, heading, door_x, extension=0.0):
 
     xs = [
         x + a * math.cos(heading) - b * math.sin(heading)
-        for a in (-0.105, max(0.105, extension + 0.016))
-        for b in (-0.085, 0.085)
+        for a in (-0.105, max(0.145, extension + 0.016))
+        for b in (-0.090, 0.090)
     ]
 
     return (

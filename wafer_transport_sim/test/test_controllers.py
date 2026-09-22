@@ -47,7 +47,7 @@ def ros(monkeypatch):
             return self.name
 
         def get_logger(self):
-            return NS(info=lambda _: None, error=lambda _: None)
+            return NS(info=lambda _: None, warning=lambda _: None, error=lambda _: None)
 
         def get_clock(self):
             return NS(now=lambda: NS(nanoseconds=int(bus.time * 1e9)))
@@ -84,7 +84,8 @@ def ros(monkeypatch):
            DurabilityPolicy=NS(TRANSIENT_LOCAL=1), ReliabilityPolicy=NS(RELIABLE=1))
     module('rclpy.clock', Clock=lambda **_: None, ClockType=NS(STEADY_TIME=1))
     for package, symbols in {
-        'std_msgs': dict(Bool=Scalar, String=Scalar, Float64=Scalar, Empty=Scalar),
+        'std_msgs': dict(Bool=Scalar, String=Scalar, Float64=Scalar,
+                         Float64MultiArray=Scalar, Empty=Scalar),
         'geometry_msgs': dict(Twist=Twist, PoseStamped=Scalar),
         'sensor_msgs': dict(JointState=Scalar),
         'nav_msgs': dict(Odometry=Odometry),
@@ -93,7 +94,7 @@ def ros(monkeypatch):
         module(package)
         module(package + '.msg', **symbols)
     for name in ('common', 'wafer_handler', 'transport_controller', 'docking_controller', 'system_manager',
-                 'four_room_controller'):
+                 'four_room_controller', 'ir_line_follower'):
         key = 'wafer_transport_sim.' + name
         monkeypatch.delitem(sys.modules, key, raising=False)
         mod = importlib.import_module(key)

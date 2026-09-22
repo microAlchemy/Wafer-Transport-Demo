@@ -9,16 +9,28 @@ transport_controller:
     room_speed: 0.15
     turn_speed: 0.55
     door_speed: 0.18
-    qr_timeout: 5.0
+    door_open_hold: 0.5
     mission_timeout: 600.0
     startup_timeout_wall: 90.0
     intermediate_transfers: true
     placement_hold: 1.0
+    minimum_cruise_speed: 0.07
+    curve_speed: 0.09
+    braking_acceleration: 0.35
+    allow_sensor_fallback: true
+ir_line_follower:
+  ros__parameters:
+    linear_speed: 0.20
+    kp: 25.0
+    max_angular_speed: 1.4
+    curve_speed: 0.09
+    sensor_forward: 0.10684
+    detection_radius: 0.025
 line_follower:
   ros__parameters:
     linear_speed: 0.20
-    kp: 0.004
-    max_angular_speed: 0.6
+    kp: 0.007
+    max_angular_speed: 1.4
     threshold: 55
     camera_crop_ratio: 0.35
 qr_detector:

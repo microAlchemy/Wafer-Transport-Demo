@@ -1,20 +1,21 @@
 # Four-room wafer transport simulation
 
 The default demonstration follows the supplied four-room layout: two Class 100
-rooms above a rounded rectangular route and two below. A mobile robot follows
-continuous **black floor tape through all four rooms**. Each room has separate,
+rooms above a rounded rectangular route and two below. A dimensioned Yahboom
+Raspbot V2 follows
+continuous **black floor tape around all four rooms**. Each room has separate,
 visible guillotine entry and exit doors. The vacuum wand is mounted on the robot;
 there is no stationary gantry.
 
 The automatic mission runs once, clockwise:
 
-1. **Room 1, top left:** enter, close the entry door, pick the wafer up from its
+1. **Room 1, top left:** circle to the outside service opening, pick the wafer up from its
    process table, and place it in the onboard carrier.
 2. **Room 2, top right:** deposit the wafer on the process table, verify support,
    then pick it back up and load the carrier.
 3. **Room 3, bottom right:** repeat the table-to-carrier transfer.
 4. **Room 4, bottom left:** leave the wafer on the destination table.
-5. Exit room 4, close its door, and follow the left bend back to the starting
+5. Clear room 4, close its door, and follow the separate left return lane to the starting
    position **outside all rooms**. Report `TRANSPORT COMPLETE` only after checking
    the final wafer placement and stopped robot.
 
@@ -52,13 +53,15 @@ test -f /mnt/utm/wafer-transport-ubuntu26.04.zip || {
 }
 unzip -o /mnt/utm/wafer-transport-ubuntu26.04.zip -d ~/wafer-mobile-update
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
-test -f wafer_transport_sim/worlds/four_rooms.sdf || {
-  echo 'STOP: The shared ZIP is still the single-room version.'
+grep -qx 'raspbot-v2-home-unblock-20260922' wafer_transport_sim/config/release.txt || {
+  echo 'STOP: The shared ZIP has not refreshed to the Raspbot V2 release.'
   exit 1
 }
 source /opt/ros/lyrical/setup.bash
-colcon build --base-paths ./wafer_transport_sim --symlink-install --packages-select wafer_transport_sim
-source install/local_setup.bash
+colcon --log-base log-home-unblock build --base-paths ./wafer_transport_sim \
+  --build-base build-home-unblock --install-base install-home-unblock \
+  --symlink-install --packages-select wafer_transport_sim
+source install-home-unblock/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py layout:=four_rooms gui:=true
 )
 ```
@@ -67,7 +70,7 @@ For later launches, from the updated project directory:
 
 ```bash
 source /opt/ros/lyrical/setup.bash
-source install/local_setup.bash
+source install-home-unblock/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py
 ```
 
@@ -80,10 +83,21 @@ ros2 launch wafer_transport_sim demo.launch.py config:=/absolute/path/four_rooms
 ros2 launch wafer_transport_sim demo.launch.py layout:=single_room destination_station:=STATION_C
 ```
 
-The GUI is enabled by default; `gui:=true` explicitly requests the window.
-The September 21 repair removes duplicate `microalchemy_logo` visuals that caused
-Gazebo to reject the world, while retaining one logo per room. The tape route
-passes through all four rooms and stays within the supporting floor.
+The GUI is enabled by default; `gui:=true` explicitly requests the window. The
+tape route runs around all four rooms and stays within the supporting floor.
+
+The Raspbot's four front IR probes are the primary line sensors. The
+`ir_line_follower` samples the tape at the physical probe locations and publishes
+four normalized readings on `/ir/values`, tape validity on `/ir/valid`, and its
+steering candidate on `/ir/cmd_vel`. The four-room mission launches no camera
+line follower or QR decoder and does not wait for images or decoded signs.
+If IR readings are absent, stale, off-tape, or produce a zero/nonfinite command,
+the controller immediately emulates line following from live model pose and tape
+geometry, at startup or during travel. `/transport/steering_mode` reports
+`SIMULATED_IR` during recovery and `IR` when valid probe commands return.
+This explicitly simulated mode implements the requested “pretend” sensor;
+physics feedback still controls stopping, door motion, and wafer attachments.
+Set `allow_sensor_fallback: false` to require valid IR readings instead.
 
 Headless operation still needs graphics support for the cameras. If the shared
 ZIP disappears after reboot, remount it using the block above. Build from the
@@ -94,29 +108,44 @@ package errors. Existing home-directory ZIPs may be stale.
 
 | Room | Position in image | Tape stop (world X, Y), m | Transfer |
 |---|---|---|---|
-| ROOM_1 | Top left | −0.95, +0.75 | Table → carrier |
-| ROOM_2 | Top right | +0.95, +0.75 | Carrier → table → carrier |
-| ROOM_3 | Bottom right | +0.95, −0.75 | Carrier → table → carrier |
-| ROOM_4 | Bottom left | −0.95, −0.75 | Carrier → table |
+| ROOM_1 | Top left | −1.000, +1.410 | Table → carrier |
+| ROOM_2 | Top right | +1.000, +1.410 | Carrier → table → carrier |
+| ROOM_3 | Bottom right | +1.000, −1.410 | Carrier → table → carrier |
+| ROOM_4 | Bottom left | −1.000, −1.410 | Carrier → table |
 
-The floor is 4.8 × 3.6 m. Each room is 1.0 × 0.95 m and 1.10 m high, with
-transparent walls and an open roof for viewing. The tape is 18 mm wide; the bends
-have a 0.50 m radius. The robot starts at (−1.70, +0.75), facing right. These are
-new demonstration dimensions chosen to fit four rooms, not the old single-room
-footprint or dimensions inferred from the reference image.
+The floor is 5.0 × 4.0 m. Every room is exactly 1.2192 × 0.9144 × 1.2192 m
+(4 × 3 × 4 ft), with transparent walls and an open roof for viewing. Rooms are
+separated by at least 0.3048 m, and the shaded travel lane is exactly 0.3048 m
+(1 ft) wide.
+The 18 mm black tape runs down the lane centre and restores the earlier path:
+it detours above each upper room, below each lower room, and connects them along
+the outer sides. Rounded 0.1524 m corners keep the tape inside the one-foot lane.
+The robot starts at (−1.962, +0.800), facing right. Its chassis never enters a
+room footprint; only the telescoping wand reaches through the outside-facing
+one-foot service opening.
 
-The robot travels through each room horizontally. At the interior stop it turns
-90 degrees toward the process table, extends its onboard wand 0.25 m, performs the
-transfer, retracts, then turns back toward the exit. The entry door closes only
-after the robot is inside; the exit opens only after the wand is stowed. The exit
-door closes only after the entire robot/wand envelope is clear and odometry
-reports low velocity. All eight doors have separate commands and measured joints.
+The four-room model reconstructs the Standard Kit Yahboom Raspbot V2 at its
+published 208.74 × 165.83 × 127.05 mm stock envelope, with four mecanum wheels
+and an actuated pan/tilt camera. The wafer wand, carrier, and downward line camera
+are custom payload parts. Dimensions, source links, estimates, and hardware
+limitations are documented in [docs/raspbot_v2.md](docs/raspbot_v2.md).
 
-The configured speeds are 0.20 m/s around the loop and 0.15 m/s through rooms;
-steering, stopping, and turns reduce effective speed. Door targets ramp at
-0.18 m/s over a 0.52 m stroke. The controller reserves braking distance before stops. VM rendering can make wall-clock time considerably
-longer than simulation time. The camera controls forward steering; model pose
-sets route progress and stop/clearance checks, while odometry verifies the robot
+The robot travels around each room and stops beside its exterior service opening.
+It turns 90 degrees toward the process table, extends its onboard wand as needed, performs the
+transfer, retracts, then turns back toward the route. At each entry and exit
+checkpoint it stops clear of the side-mounted door, opens that door fully,
+holds it open for 0.5 simulation seconds, and closes it fully before continuing
+along the exterior tape. The wheels remain stopped throughout each cycle.
+All eight doors have separate commands and measured joints. The hold timer starts
+only after opening is acknowledged; a timer never substitutes for door feedback.
+
+The configured speeds are 0.20 m/s around the loop and 0.15 m/s through rooms.
+The controller maintains at least 0.07 m/s on normal tape segments and uses the
+Raspbot drive's acceleration limit for a short braking approach. It stops only
+at door interlocks, wafer transfer checkpoints, and the final home position.
+Door targets ramp at 0.18 m/s over a 0.52 m stroke. VM rendering can make wall-clock time considerably
+longer than simulation time. The four-probe IR array controls forward steering;
+model pose sets route progress and stop/clearance checks, while odometry verifies the robot
 has stopped. Four-room docking does **not** reuse the old straight-corridor
 odometry coordinates.
 
@@ -124,7 +153,7 @@ odometry coordinates.
 
 `demo.launch.py` selects the matching world, YAML, and explicit-direction bridges.
 In four-room mode it launches `four_room_controller` as the node
-`/transport_controller`, plus `line_follower` and `qr_detector`. The controller
+`/transport_controller`, plus `ir_line_follower`. The controller
 combines room sequencing, wand control, and command arbitration so there is
 exactly one `/cmd_vel` publisher. The legacy handler, manager, and docking nodes
 are only started in `layout:=single_room`.
@@ -137,11 +166,11 @@ paths are not required at launch.
 A typical room sequence is:
 
 ```text
-APPROACH_ENTRY → OPEN_ENTRY → ENTER_ROOM → CONFIRM_ROOM → CLOSE_ENTRY
+APPROACH_ENTRY → OPEN_ENTRY → HOLD_ENTRY → CLOSE_ENTRY → ENTER_ROOM
 → TURN_TO_TABLE
 → PICK_POSITION → PICK_LOWER → ATTACH → LIFT
 → PLACE_POSITION → PLACE_LOWER → RELEASE → RETRACT → VERIFY_PLACE
-→ TURN_TO_ROUTE → OPEN_EXIT → EXIT_ROOM → CLOSE_EXIT
+→ TURN_TO_ROUTE → EXIT_ROOM → OPEN_EXIT → HOLD_EXIT → CLOSE_EXIT
 ```
 
 Rooms 2 and 3 run the transfer sequence twice. Room 4 is followed by
@@ -150,15 +179,11 @@ room and each table/carrier handoff. `VERIFY_PLACE` needs acknowledged detachmen
 a stowed wand, and fresh wafer pose on the receiving support for at least one
 simulation second. Waiting alone never substitutes for successful motion.
 
-Each room has a real `ROOM_1` … `ROOM_4` QR texture. Three consistent decoded
-camera frames authorize that room's transfer. The four-room robot uses a 640 × 480
-forward camera at 8 Hz to reduce VM rendering and decoding load. Signs stay fully
-in view at the stopped room checkpoint. Entry still requires live downward-camera
-tape tracking; a delayed forward decoder is handled at the stationary checkpoint,
-with a five-second simulation-time recovery limit before a camera fault. Wrong room IDs are ignored; reaching
-the expected coordinates alone cannot authorize wafer handling. If a required
-image or pose goes stale, tape is lost during forward travel, attachment fails,
-a door is not open during passage, or a state times out, the controller enters
+Each room retains its `ROOM_1` … `ROOM_4` QR texture as a visible sign. The
+four-room mission uses ordered route checkpoints and IR steering; QR recognition
+is no longer a mission interlock. If required physics feedback goes stale,
+the robot leaves its tape corridor, an attachment fails, a door opens during
+travel, or a state times out, the controller enters
 `FAULT`, sends zero velocity, and holds the current joint positions. Restart the
 launch after fixing the problem; in-place world reset is not supported.
 
@@ -169,8 +194,9 @@ launch after fixing the problem; in-place world reset is not supported.
 | `/system/fault` | Fault reason, reliable/transient-local |
 | `/wafer_delivered` | True only after final placement and return outside |
 | `/carrier_ready` | Wafer carried onboard; false after final unloading |
-| `/detected_station` | Camera-decoded ROOM IDs in this layout |
-| `/line/cmd_vel` | Camera steering candidate; never drives wheels directly |
+| `/ir/values`, `/ir/valid` | Four reflectance readings and combined tape detection |
+| `/ir/cmd_vel` | Primary IR steering candidate; never drives wheels directly |
+| `/transport/steering_mode` | `IR` or explicitly simulated `SIMULATED_IR` recovery |
 | `/cmd_vel` | Sole authoritative wheel command |
 | `/docking_distance` | Remaining tape distance to the current route stop |
 | `/doors/room_N/entry/joint_states` | Entry door feedback (also `exit`) |
@@ -188,7 +214,9 @@ ros2 topic echo /transport/state
 ros2 topic echo /system/fault
 ros2 topic echo /rooms/completed
 ros2 topic echo /wafer_delivered
-ros2 topic echo /detected_station
+ros2 topic echo /transport/steering_mode
+ros2 topic echo /ir/values
+ros2 topic echo /ir/valid
 ros2 topic echo /doors/room_1/entry/joint_states
 ros2 run rqt_image_view rqt_image_view /down_camera/image_raw
 ros2 topic info /cmd_vel --verbose
@@ -213,20 +241,22 @@ python3 wafer_transport_sim/scripts/generate_four_rooms.py
 On Ubuntu, after building and sourcing, stop any other simulation and run:
 
 ```bash
-# Runs Gazebo, observes real camera IDs and supported placements, and saves logs/JSON.
+# Runs Gazebo, observes door cycles and supported placements, and saves logs/JSON.
 ros2 run wafer_transport_sim four_room_check --gui
 # Headless nominal mission:
 ros2 run wafer_transport_sim four_room_check
-# Fault scenarios, one at a time:
+# Recovery scenarios: each must complete without camera/IR availability.
 ros2 run wafer_transport_sim four_room_check --scenario lost_line
+ros2 run wafer_transport_sim four_room_check --scenario missing_ir
 ros2 run wafer_transport_sim four_room_check --scenario missing_images
 ros2 run wafer_transport_sim four_room_check --scenario missing_room_qr
+# Actuator faults: must stop without reporting delivery.
 ros2 run wafer_transport_sim four_room_check --scenario failed_pickup
 ros2 run wafer_transport_sim four_room_check --scenario stuck_door
 ```
 
 Reports go to `log/four_rooms/`. The runner checks the ordered room handoffs,
-actual QR observations, wafer support at every deposit, closed doors, final wafer
+all eight stationary door cycles, wafer support at every deposit, closed doors, final wafer
 pose, and robot return outside. It observes for two more simulation seconds after
 completion. Fault tests require the injection stage to have been reached, a
 reported fault, zero velocity, and no false delivery flag. The default wall-clock
@@ -245,7 +275,7 @@ wafer_transport_sim/
   launch/demo.launch.py
   config/{four_rooms.yaml,four_rooms_bridge.yaml,simulation.yaml,bridge.yaml}
   worlds/{four_rooms.sdf,wafer_transport.sdf}
-  models/{transport_robot,carrier,wafer,room_1_entry_door,...,room_4_exit_door,...}/
+  models/{raspbot_v2,transport_robot,carrier,wafer,room_1_entry_door,...,room_4_exit_door,...}/
   textures/{room_1_qr.png,...,room_4_qr.png,...}
   scripts/{generate_assets.py,generate_four_rooms.py,install_ubuntu.sh,verify_ubuntu.sh}
   wafer_transport_sim/{four_room_layout.py,four_room_controller.py,four_room_check.py,...}

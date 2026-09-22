@@ -9,9 +9,12 @@ import yaml
 from PIL import Image, ImageDraw
 from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link,
                              solid, textured_plane, save_model, write_xml)
+from generate_raspbot import generate as generate_raspbot
 
 sys.path.insert(0, str(ROOT))
-from wafer_transport_sim.four_room_layout import ROOMS, PATH, START
+from wafer_transport_sim.four_room_layout import (ROOMS, PATH, START, ROOM_LENGTH,
+                                                  ROOM_DEPTH, ROOM_HEIGHT,
+                                                  CORRIDOR_WIDTH)
 
 
 def generate():
@@ -36,12 +39,18 @@ def generate():
     floor = el(world, 'model', name='loop_floor')
     el(floor, 'static', 'true')
     body = link(floor, 'structure')
-    solid(body, 'floor', (4.8, 3.6, .03), (0, 0, -.015), color=WHITE)
+    solid(body, 'floor', (5.0, 4.0, .03), (0, 0, -.015), color=WHITE)
     for i, (a, b) in enumerate(zip(PATH, PATH[1:])):
         length = math.dist(a, b)
+        if length < 1e-8:
+            continue
+        center = ((a[0]+b[0])/2, (a[1]+b[1])/2, .00015)
+        heading = math.atan2(b[1]-a[1], b[0]-a[0])
+        solid(body, f'corridor_{i}', (length+.002, CORRIDOR_WIDTH, .0002), center,
+              rpy=(0, 0, heading), color='.72 .75 .77 1', collision=False)
         solid(body, f'tape_{i}', (length+.001, .018, .0005),
               ((a[0]+b[0])/2, (a[1]+b[1])/2, .0003),
-              rpy=(0, 0, math.atan2(b[1]-a[1], b[0]-a[0])),
+              rpy=(0, 0, heading),
               color='.005 .005 .005 1', collision=False)
     for dy in (-.054, .054):
         solid(body, 'loading_rail_' + str(dy), (.15, .016, .008),
@@ -65,17 +74,29 @@ def generate():
         model = el(world, 'model', name=f'room_{room.number}')
         el(model, 'static', 'true')
         structure = link(model, 'structure')
-        ymin, ymax = sorted((room.y-room.direction*.30, room.y+room.direction*.65))
+        ymin, ymax = room.y-ROOM_DEPTH/2, room.y+ROOM_DEPTH/2
         cy = (ymin+ymax)/2
         # Roof omitted for a clear view of the robot, wand and wafer.
-        for y in (ymin, ymax):
-            solid(structure, f'glass_{y}', (1., .012, 1.10), (room.x, y, .55),
+        outer_y = ymax if room.direction == 1 else ymin
+        inner_y = ymin if room.direction == 1 else ymax
+        solid(structure, 'glass_inner', (ROOM_LENGTH, .012, ROOM_HEIGHT),
+              (room.x, inner_y, ROOM_HEIGHT/2),
+              color='.5 .75 .9 1', transparency=.82)
+        # The chassis stays outside.  Only the wand reaches through this
+        # one-foot service opening in the outside-facing wall.
+        half_opening = CORRIDOR_WIDTH/2
+        for i, (lo, hi) in enumerate(((room.x-ROOM_LENGTH/2, room.x-half_opening),
+                                       (room.x+half_opening, room.x+ROOM_LENGTH/2))):
+            solid(structure, f'glass_outer_{i}', (hi-lo, .012, ROOM_HEIGHT),
+                  ((lo+hi)/2, outer_y, ROOM_HEIGHT/2),
                   color='.5 .75 .9 1', transparency=.82)
         for side in ('entry', 'exit'):
             x = room.door_x(side)
-            for i, (lo, hi) in enumerate(((ymin, room.y-.155), (room.y+.155, ymax))):
-                solid(structure, f'{side}_wall_{i}', (.012, hi-lo, 1.10),
-                      (x, (lo+hi)/2, .55), color='.5 .75 .9 1', transparency=.78)
+            half_passage = CORRIDOR_WIDTH/2
+            for i, (lo, hi) in enumerate(((ymin, room.y-half_passage),
+                                           (room.y+half_passage, ymax))):
+                solid(structure, f'{side}_wall_{i}', (.012, hi-lo, ROOM_HEIGHT),
+                      (x, (lo+hi)/2, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.78)
             name = f'room_{room.number}_{side}_door'
             door = ET.parse(ROOT/'models/guillotine_door/model.sdf').getroot()
             door.find('model').set('name', name)
@@ -86,8 +107,29 @@ def generate():
             ctrl.find('topic').text = '/actuators/' + room.door_joint(side)
             feedback = f'/doors/room_{room.number}/{side}/joint_states'
             door.find(".//plugin[@name='gz::sim::systems::JointStatePublisher']/topic").text = feedback
+            # Make the clear doorway and the floor corridor exactly 1 ft wide.
+            center = CORRIDOR_WIDTH/2 + .015
+            frame, panel = door.find(".//link[@name='frame']"), door.find(".//link[@name='panel']")
+            for element in frame.findall('visual') + frame.findall('collision'):
+                if element.get('name', '').startswith('guide_'):
+                    values = list(map(float, element.findtext('pose').split()))
+                    if values[1] > .1:
+                        values[1] = 2*center-.008
+                    element.find('pose').text = ' '.join(map(str, values))
+                elif element.get('name', '').startswith('drive_housing'):
+                    values = list(map(float, element.findtext('pose').split()))
+                    values[1] = center
+                    element.find('pose').text = ' '.join(map(str, values))
+                    element.find('geometry/box/size').text = f'.045 {2*center} .06'
+            values = list(map(float, panel.findtext('pose').split()))
+            values[1] = center
+            panel.find('pose').text = ' '.join(map(str, values))
+            for element in panel.findall('visual') + panel.findall('collision'):
+                element.find('geometry/box/size').text = (
+                    element.findtext('geometry/box/size').split()[0] +
+                    f' {CORRIDOR_WIDTH} ' + element.findtext('geometry/box/size').split()[2])
             save_model(name, door)
-            include(name, (x, room.y-.155, 0.))
+            include(name, (x, room.y-center, 0.))
             for topic, ros_type, gz_type, direction in [
                     (ctrl.findtext('topic'), 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
                     (feedback, 'sensor_msgs/msg/JointState', 'gz.msgs.Model', 'GZ_TO_ROS')]:
@@ -103,28 +145,30 @@ def generate():
         action = ('SOURCE', 'TRANSFER', 'TRANSFER', 'DESTINATION')[room.number-1]
         ImageDraw.Draw(label).text((8, 18), f'ROOM {room.number} / {action} / CLASS 100', fill='#173b50')
         label.resize((1020, 150)).save(ROOT/f'textures/room_{room.number}_label.png')
-        sign_x, sign_y = room.x + room.direction*.28, room.y + room.direction*.10
+        sign_x = room.x + room.direction*.28
+        sign_y = room.y + room.direction*(ROOM_DEPTH/2+.02)
         normal = room.heading + math.pi
-        textured_plane(structure, 'room_qr', f'room_{room.number}_qr.png', .16, .16,
+        textured_plane(structure, 'room_qr', f'room_{room.number}_qr.png', .22, .22,
                        (sign_x, sign_y, .25), (0, 0, normal), texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
                        (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
                        (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
                        (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
-    robot = ET.parse(ROOT/'models/transport_robot/model.sdf').getroot()
-    camera = robot.find(".//sensor[@name='forward_camera']/camera/image")
-    camera.find('width').text = '640'
-    camera.find('height').text = '480'
-    save_model('transport_robot_four_rooms', robot)
-    include('transport_robot', (*START, 0.), resource='transport_robot_four_rooms')
+    generate_raspbot()
+    include('transport_robot', (*START, 0.), resource='raspbot_v2')
+    for joint_name in ('camera_pan', 'camera_tilt'):
+        topic = '/actuators/' + joint_name
+        mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
+                             ros_type_name='std_msgs/msg/Float64',
+                             gz_type_name='gz.msgs.Double', direction='ROS_TO_GZ'))
     include('carrier', (*START, .15))
     include('wafer', (ROOMS[0].table[0], ROOMS[0].table[1], .156))
     gui = el(world, 'gui', fullscreen='false')
     view = el(gui, 'plugin', filename='MinimalScene', name='3D View')
     el(view, 'engine', 'ogre2')
     el(view, 'scene', 'scene')
-    el(view, 'camera_pose', '0 -4.8 5.8 0 .88 1.5708')
+    el(view, 'camera_pose', '0 -5.2 5.7 0 .83 1.5708')
     for filename, name in [('GzSceneManager', 'Scene Manager'),
                            ('InteractiveViewControl', 'View Control'), ('CameraTracking', 'Camera Tracking')]:
         el(gui, 'plugin', filename=filename, name=name)

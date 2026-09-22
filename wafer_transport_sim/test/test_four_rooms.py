@@ -11,9 +11,12 @@ import numpy as np
 import pytest
 import yaml
 from test_controllers import ros, Scalar, Twist, Odometry, pose
-from wafer_transport_sim.four_room_layout import ROOMS, ROOM_CODES, PATH, START, LENGTH, project, room_stop, door_clear
+from wafer_transport_sim.four_room_layout import (ROOMS, ROOM_CODES, PATH, START, LENGTH,
+                                                  ROOM_LENGTH, ROOM_DEPTH, ROOM_HEIGHT,
+                                                  CORRIDOR_WIDTH, project, room_stop, door_clear)
 from wafer_transport_sim.vision import line_command, station_codes
 from wafer_transport_sim.core import DetectionFilter, clamp
+from wafer_transport_sim.raspbot_spec import CAMERA_OFFSET, CAMERA_PIVOT, MISSION_CAMERA_TILT
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,14 +24,22 @@ ROOT = Path(__file__).resolve().parents[1]
 def floor_image(x, y, heading):
     # Pinhole image of the actual 18 mm tape, at the SDF camera pose.
     image = np.full((240, 320, 3), 240, dtype=np.uint8)
-    focal = 160/math.tan(1.3/2)
+    focal = 160/math.tan(1.8/2)
     c, s = math.cos(heading), math.sin(heading)
-    points = []
-    for px, py in PATH:
-        forward = (px-x)*c + (py-y)*s - .13
-        left = -(px-x)*s + (py-y)*c
-        points.append((round(160-left*focal/.0807), round(120-forward*focal/.0807)))
-    cv2.polylines(image, [np.int32(points)], False, (5, 5, 5), round(.018*focal/.0807))
+    radius = max(1, round(.018*focal/.041/2))
+    # Rasterize only the local ground footprint. Projecting an entire closed
+    # loop as one polyline incorrectly draws behind-camera segments across the
+    # image when the route contains several tight exterior turns.
+    for a, b in zip(PATH, PATH[1:]):
+        count = max(2, math.ceil(math.dist(a, b)/.004))
+        for i in range(count+1):
+            t = i/count
+            px, py = a[0]+t*(b[0]-a[0]), a[1]+t*(b[1]-a[1])
+            forward = (px-x)*c + (py-y)*s - .070
+            left = -(px-x)*s + (py-y)*c
+            if abs(forward) <= .06 and abs(left) <= .06:
+                point = (round(160-left*focal/.041), round(120-forward*focal/.041))
+                cv2.circle(image, point, radius, (5, 5, 5), -1)
     return image
 
 
@@ -41,6 +52,16 @@ def test_loop_layout_and_separate_door_bridges():
     floor = world.find(".//collision[@name='floor_collision']/geometry/box/size")
     fx, fy, _ = map(float, floor.text.split())
     assert all(abs(x)+.15 < fx/2 and abs(y)+.15 < fy/2 for x, y in PATH)
+    assert ROOM_LENGTH == pytest.approx(4*.3048)
+    assert ROOM_DEPTH == pytest.approx(3*.3048)
+    assert ROOM_HEIGHT == pytest.approx(4*.3048)
+    assert ROOMS[1].x-ROOMS[0].x-ROOM_LENGTH >= CORRIDOR_WIDTH
+    assert ROOMS[0].y-ROOMS[3].y-ROOM_DEPTH >= CORRIDOR_WIDTH
+    for room in ROOMS:
+        for x, y in PATH:
+            dx = max(abs(x-room.x)-ROOM_LENGTH/2, 0.)
+            dy = max(abs(y-room.y)-ROOM_DEPTH/2, 0.)
+            assert math.hypot(dx, dy) >= CORRIDOR_WIDTH/2-1e-9
     source_pose = list(map(float, world.findtext(".//include[name='wafer']/pose").split()))
     assert source_pose[:2] == list(ROOMS[0].table[:2])
     assert len(world.findall('.//include')) == 11  # robot, carrier, wafer, eight doors
@@ -60,6 +81,15 @@ def test_loop_layout_and_separate_door_bridges():
             assert topics[f'/doors/room_{room.number}/{side}/joint_states']['direction'] == 'GZ_TO_ROS'
 
 
+def test_raspbot_ir_array_centres_and_steers_toward_tape(ros):
+    ir = ros.ir_line_follower
+    centered = ir.probe_values(*START, 0.)
+    assert centered[1] == pytest.approx(centered[2])
+    assert ir.steering(centered)[1] == pytest.approx(0.)
+    below_tape = ir.probe_values(START[0], START[1]-.012, 0.)
+    assert ir.steering(below_tape)[1] > 0.  # tape is to the robot's left
+
+
 @pytest.mark.parametrize('room', ROOMS)
 @pytest.mark.parametrize('before_stop', [0., .08, .20])
 def test_room_qr_decodes_from_approach(room, before_stop):
@@ -69,13 +99,19 @@ def test_room_qr_decodes_from_approach(room, before_stop):
     sign = world.find(f".//model[@name='room_{room.number}']//visual[@name='room_qr']")
     sx, sy, sz, *_ = map(float, sign.findtext('pose').split())
     sw, sh = map(float, sign.findtext('geometry/plane/size').split())
-    robot = ET.parse(ROOT/'models/transport_robot_four_rooms/model.sdf')
+    robot = ET.parse(ROOT/'models/raspbot_v2/model.sdf')
     camera = robot.find(".//sensor[@name='forward_camera']/camera")
     iw, ih = (int(camera.findtext('image/'+name)) for name in ('width', 'height'))
     focal = iw/2/math.tan(float(camera.findtext('horizontal_fov'))/2)
-    depth = room.direction*(sx-room.x)+before_stop-.095
-    offset = room.direction*(sy-room.y)
-    corners = [[iw/2+focal*(u-offset)/depth, ih/2-focal*(sz-.25+v)/depth]
+    q = MISSION_CAMERA_TILT
+    camera_forward = CAMERA_PIVOT[0] + math.cos(q)*CAMERA_OFFSET
+    camera_height = CAMERA_PIVOT[2] - math.sin(q)*CAMERA_OFFSET
+    forward = room.direction*(sx-(room.x-room.direction*before_stop))-camera_forward
+    lateral = room.direction*(sy-room.route_y)
+    vertical = sz-camera_height
+    depth = math.cos(q)*forward-math.sin(q)*vertical
+    camera_z = math.sin(q)*forward+math.cos(q)*vertical
+    corners = [[iw/2-focal*(lateral+u)/depth, ih/2-focal*(camera_z+v)/depth]
                for u, v in [(-sw/2, sh/2), (sw/2, sh/2), (sw/2, -sh/2), (-sw/2, -sh/2)]]
     h, w = qr.shape[:2]
     matrix = cv2.getPerspectiveTransform(np.float32([[0, 0], [w-1, 0], [w-1, h-1], [0, h-1]]), np.float32(corners))
@@ -112,7 +148,7 @@ def test_door_swept_volume_clear_of_room_and_frame(room):
             obstacles.append((collision.get('name'), bounds(link, collision)))
     for side in ('entry', 'exit'):
         door = ET.parse(ROOT/f'models/room_{room.number}_{side}_door/model.sdf')
-        origin = (room.door_x(side), room.y-.155, 0.)
+        origin = (room.door_x(side), room.y-(CORRIDOR_WIDTH/2+.015), 0.)
         frame, panel = door.find(".//link[@name='frame']"), door.find(".//link[@name='panel']")
         fixed = obstacles + [(c.get('name'), bounds(frame, c, origin)) for c in frame.findall('collision')]
         for collision in panel.findall('collision'):
@@ -131,9 +167,13 @@ class Harness:
         self.node.params.update(cfg['/**']['ros__parameters'])
         self.node.params.update(cfg['transport_controller']['ros__parameters'])
         self.line_speed = cfg['line_follower']['ros__parameters']['linear_speed']
+        self.line_crop = cfg['line_follower']['ros__parameters']['camera_crop_ratio']
+        self.line_kp = cfg['line_follower']['ros__parameters']['kp']
+        self.line_max_angular = cfg['line_follower']['ros__parameters']['max_angular_speed']
         self.x, self.y = START
         self.heading = 0.
-        self.joints = dict.fromkeys(('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z', 'tray_y'), 0.)
+        self.joints = dict.fromkeys(('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z', 'tray_y',
+                                    'camera_pan', 'camera_tilt'), 0.)
         self.joints.update({r.door_joint(side): 0. for r in ROOMS for side in ('entry', 'exit')})
         self.vacuum, self.carrier = 'detached', 'attached'
         self.wafer = ROOMS[0].table
@@ -143,8 +183,11 @@ class Harness:
         self.releases = []
         self.automatic_qr = True
         self.failed_door = None
+        self.stuck_joints = set()
         self.failed_pickup = False
         self.blank = False
+        self.ir_failure = None
+        self.door_cycles = set()
 
     def feedback(self):
         b = self.bus
@@ -164,28 +207,30 @@ class Harness:
                 b.emit(f'/doors/room_{r.number}/{side}/joint_states', NS(name=[name], position=[self.joints[name]]))
         b.emit('/attachments/vacuum/state', Scalar(self.vacuum))
         b.emit('/attachments/carrier/state', Scalar(self.carrier))
-        result = None if self.blank else line_command(floor_image(self.x, self.y, self.heading), self.line_speed, .004, .6, 55, .35)
-        line = Twist()
-        if result:
-            line.linear.x, line.angular.z = result
-        b.emit('/line/healthy', Scalar(True))
-        b.emit('/line/valid', Scalar(result is not None))
-        b.emit('/line/cmd_vel', line)
-        b.emit('/qr/healthy', Scalar(True))
-        if self.automatic_qr and self.node.state in {'ENTER_ROOM', 'CONFIRM_ROOM'}:
-            b.emit('/detected_station', Scalar(self.node.room.code))
+        # No camera or QR messages at all: the mission must depend only on IR
+        # steering plus physics feedback for doors, payload and stops.
+        ir_values = b.ir_line_follower.probe_values(self.x, self.y, self.heading)
+        ir_result = b.ir_line_follower.steering(ir_values, self.line_speed, 25., 1.4, .09)
+        ir_command = Twist()
+        if ir_result:
+            ir_command.linear.x, ir_command.angular.z = ir_result
+        if self.ir_failure != 'missing':
+            b.emit('/ir/healthy', Scalar(True))
+            b.emit('/ir/valid', Scalar(ir_result is not None and self.ir_failure != 'lost'))
+            b.emit('/ir/cmd_vel', Twist() if self.ir_failure == 'zero' else ir_command)
 
     def advance(self):
         b, n = self.bus, self.node
         dt = .05
-        self.applied.linear.x += clamp(self.cmd.linear.x-self.applied.linear.x, -.08*dt, .08*dt)
-        self.applied.angular.z += clamp(self.cmd.angular.z-self.applied.angular.z, -.8*dt, .8*dt)
+        # Match the Raspbot MecanumDrive acceleration limit in its generated SDF.
+        self.applied.linear.x += clamp(self.cmd.linear.x-self.applied.linear.x, -.8*dt, .8*dt)
+        self.applied.angular.z += clamp(self.cmd.angular.z-self.applied.angular.z, -1.5*dt, 1.5*dt)
         self.x += self.applied.linear.x*math.cos(self.heading)*dt
         self.y += self.applied.linear.x*math.sin(self.heading)*dt
         self.heading += self.applied.angular.z*dt
         for name in self.joints:
             target = b.outputs.get('/actuators/'+name, Scalar(self.joints[name])).data
-            if name != self.failed_door:
+            if name != self.failed_door and name not in self.stuck_joints:
                 speed = .20 if name.startswith('room_') else .1
                 self.joints[name] += clamp(target-self.joints[name], -speed*dt, speed*dt)
         # Commands are events. Consume once so an old detach cannot override a
@@ -212,10 +257,23 @@ class Harness:
         if not self.history or self.history[-1] != (n.room.code, n.state):
             self.history.append((n.room.code, n.state))
         self.cmd = b.outputs['/cmd_vel']
+        if n.state in {'OPEN_ENTRY', 'HOLD_ENTRY', 'CLOSE_ENTRY', 'OPEN_EXIT', 'HOLD_EXIT', 'CLOSE_EXIT'}:
+            assert n.stopped(), n.state
+            assert self.cmd.linear.x == self.cmd.angular.z == 0.
+        if n.state in {'HOLD_ENTRY', 'HOLD_EXIT'}:
+            side = 'entry' if n.state == 'HOLD_ENTRY' else 'exit'
+            assert self.joints[n.room.door_joint(side)] == pytest.approx(.52, abs=.002)
+            self.door_cycles.add((n.room.code, side))
+        if self.cmd.linear.x > 0.:
+            assert all(abs(self.joints[r.door_joint(side)]) <= .002
+                       for r in ROOMS for side in ('entry', 'exit'))
 
 
-def test_full_four_room_loop_with_camera_steering(ros):
+@pytest.mark.parametrize('ir_failure', [None, 'missing', 'lost', 'zero'])
+def test_full_four_room_loop_with_ir_steering(ros, ir_failure):
     h = Harness(ros)
+    h.ir_failure = ir_failure
+    h.automatic_qr = False
     for _ in range(12000):
         h.advance()
         assert h.node.state != 'FAULT', (h.history[-5:], ros.outputs.get('/system/fault').data,
@@ -225,9 +283,13 @@ def test_full_four_room_loop_with_camera_steering(ros):
     assert h.node.state == 'COMPLETE', h.history[-5:]
     assert h.node.completed == list(ROOM_CODES)
     assert ros.outputs['/wafer_delivered'].data
-    assert math.dist((h.x, h.y), START) < .015
+    assert math.dist((h.x, h.y), START) < .04
     assert h.wafer == ROOMS[-1].table
+    assert h.door_cycles == {(r.code, side) for r in ROOMS for side in ('entry', 'exit')}
     for r in ROOMS:
+        states = [state for code, state in h.history if code == r.code]
+        assert states.index('OPEN_ENTRY') < states.index('HOLD_ENTRY') < states.index('CLOSE_ENTRY') < states.index('ENTER_ROOM')
+        assert states.index('EXIT_ROOM') < states.index('OPEN_EXIT') < states.index('HOLD_EXIT') < states.index('CLOSE_EXIT')
         assert (r.code, 'CLOSE_EXIT') in h.history
         for side in ('entry', 'exit'):
             assert h.joints[r.door_joint(side)] == pytest.approx(0., abs=.002)
@@ -235,12 +297,24 @@ def test_full_four_room_loop_with_camera_steering(ros):
                                ('ROOM_3', 'table'), ('ROOM_3', 'carrier'), ('ROOM_4', 'table')}
 
 
-@pytest.mark.parametrize('failure', ['lost_line', 'stale_image', 'stale_pose', 'stuck_door', 'missing_qr', 'failed_pickup'])
+def test_cosmetic_camera_and_tray_joints_do_not_block_driving(ros):
+    h = Harness(ros)
+    h.joints.update(camera_pan=.31, camera_tilt=-.44, tray_y=.003, tray_z=.001)
+    h.stuck_joints.update(('camera_pan', 'camera_tilt', 'tray_y', 'tray_z'))
+    for _ in range(300):
+        h.advance()
+        if h.node.state == 'APPROACH_ENTRY':
+            break
+    assert h.node.state == 'APPROACH_ENTRY'
+    h.advance()
+    assert h.cmd.linear.x > 0.
+
+
+@pytest.mark.parametrize('failure', ['lost_line', 'stale_ir', 'stale_pose', 'stuck_door', 'failed_pickup'])
 def test_four_room_failures_stop_without_delivery(ros, failure):
     h = Harness(ros)
-    target = {'stuck_door': 'OPEN_ENTRY', 'missing_qr': 'CONFIRM_ROOM', 'failed_pickup': 'ATTACH'}.get(failure, 'ENTER_ROOM')
-    if failure == 'missing_qr':
-        h.automatic_qr = False
+    h.node.params['allow_sensor_fallback'] = False
+    target = {'stuck_door': 'OPEN_ENTRY', 'failed_pickup': 'ATTACH'}.get(failure, 'ENTER_ROOM')
     for _ in range(2000):
         h.advance()
         if h.node.state == target:
@@ -248,16 +322,13 @@ def test_four_room_failures_stop_without_delivery(ros, failure):
         assert h.node.state != 'FAULT'
     assert h.node.state == target
     if failure == 'lost_line':
-        ros.emit('/line/valid', Scalar(False))
-    elif failure == 'stale_image':
-        h.node.received['/line/healthy'] -= 2.
+        ros.emit('/ir/valid', Scalar(False))
+    elif failure == 'stale_ir':
+        h.node.received['/ir/healthy'] -= 2.
     elif failure == 'stale_pose':
         h.node.received['/poses/transport_robot'] -= 2.
     else:
-        if failure == 'missing_qr':
-            ros.emit('/detected_station', Scalar('ROOM_4'))
-            assert not h.node.confirmed
-        # A timeout is a failure, never a substitute for attachment/door/QR evidence.
+        # A timeout is a failure, never a substitute for attachment/door evidence.
         h.node.entered = ros.time - 61.
     h.node.tick()
     assert h.node.state == 'FAULT'
@@ -318,10 +389,12 @@ def test_launch_keeps_command_owners_exclusive():
     new = ast.literal_eval(assignment.value.body)
     legacy = ast.literal_eval(assignment.value.orelse)
     assert 'four_room_controller' in new and 'transport_controller' not in new
+    assert 'ir_line_follower' in new
+    assert 'line_follower' not in new and 'qr_detector' not in new
     assert 'transport_controller' in legacy and 'four_room_controller' not in legacy
 
 
-def test_delayed_qr_does_not_interrupt_camera_steered_entry(ros):
+def test_ir_steered_entry_has_no_camera_subscriptions(ros):
     h = Harness(ros)
     h.automatic_qr = False
     for _ in range(1200):
@@ -329,35 +402,35 @@ def test_delayed_qr_does_not_interrupt_camera_steered_entry(ros):
         if h.node.state == 'ENTER_ROOM':
             break
     assert h.node.state == 'ENTER_ROOM'
-    h.node.received['/qr/healthy'] -= 2.
     h.node.tick()
     assert h.node.state == 'ENTER_ROOM'
     assert ros.outputs['/cmd_vel'].linear.x > 0.
-    assert not h.node.confirmed
+    assert '/qr/healthy' not in ros.subscribers
+    assert '/line/cmd_vel' not in ros.subscribers
+    assert '/detected_station' not in ros.subscribers
 
 
-@pytest.mark.parametrize('recovers', [False, True])
-def test_stopped_room_checkpoint_requires_fresh_qr_decoder(ros, recovers):
+@pytest.mark.parametrize('failure', ['missing', 'lost', 'zero'])
+def test_mid_route_ir_failure_switches_to_simulated_tracking_and_recovers(ros, failure):
     h = Harness(ros)
-    h.automatic_qr = False
     for _ in range(2000):
         h.advance()
-        if h.node.state == 'CONFIRM_ROOM':
+        if h.node.state == 'ENTER_ROOM':
             break
         assert h.node.state != 'FAULT'
-    assert h.node.state == 'CONFIRM_ROOM'
-    # Even a previously confirmed ID cannot authorize handling with dead images.
-    h.node.confirmed = True
-    h.node.received['/qr/healthy'] -= 2.
-    h.node.tick()
-    assert h.node.state == 'CONFIRM_ROOM'
-    assert ros.outputs['/cmd_vel'].linear.x == 0.
-    ros.time += .2 if recovers else 5.1
+    assert h.node.state == 'ENTER_ROOM'
+    h.ir_failure = failure
+    if failure == 'missing':
+        h.node.received['/ir/cmd_vel'] -= 2.
     h.feedback()
-    if not recovers:
-        h.node.received['/qr/healthy'] -= 6.
     h.node.tick()
-    assert h.node.state == ('CLOSE_ENTRY' if recovers else 'FAULT')
+    assert h.node.state == 'ENTER_ROOM'
+    assert ros.outputs['/transport/steering_mode'].data == 'SIMULATED_IR'
+    assert ros.outputs['/cmd_vel'].linear.x > 0.
+    h.ir_failure = None
+    h.feedback()
+    h.node.tick()
+    assert ros.outputs['/transport/steering_mode'].data == 'IR'
     assert not ros.outputs['/wafer_delivered'].data
 
 
@@ -371,7 +444,7 @@ def test_configured_speed_reaches_wheel_command_and_brakes_near_stop(ros):
     assert n.command.linear.x == pytest.approx(.20)
     n.command = Twist()
     n.drive(.05)
-    assert 0. < n.command.linear.x < .07
+    assert .07 <= n.command.linear.x < .20
     n.command = Twist()
     n.drive(.003)
     assert n.command.linear.x == 0.

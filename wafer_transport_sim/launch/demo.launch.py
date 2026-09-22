@@ -26,6 +26,7 @@ def launch_nodes(context):
     config = LaunchConfiguration('config').perform(context)
     destination = LaunchConfiguration('destination_station').perform(context)
     four_rooms = layout == 'four_rooms'
+    ir_enabled = LaunchConfiguration('ir_enabled').perform(context).lower() == 'true'
     if four_rooms and destination:
         raise RuntimeError('The four-room mission visits ROOM_1 through ROOM_4 in order. '
                            'destination_station is only supported with layout:=single_room.')
@@ -44,19 +45,24 @@ def launch_nodes(context):
                   parameters=[{'config_file': bridge_config,
                                'use_sim_time': True}])
     actions = [bridge, gazebo]
-    executables = (('four_room_controller', 'line_follower', 'qr_detector') if four_rooms else
+    executables = (('four_room_controller', 'ir_line_follower') if four_rooms else
                    ('wafer_handler', 'line_follower', 'qr_detector',
                     'docking_controller', 'transport_controller', 'system_manager'))
     for executable in executables:
+        if executable == 'ir_line_follower' and not ir_enabled:
+            continue
         name = 'transport_controller' if executable == 'four_room_controller' else executable
         overrides = {'use_sim_time': True}
         if name == 'transport_controller' and destination:
             overrides['destination_station'] = destination
         node = Node(package='wafer_transport_sim', executable=executable, name=name,
                     parameters=[config, overrides], output='screen', emulate_tty=True)
-        actions.extend([node, RegisterEventHandler(OnProcessExit(
+        actions.append(node)
+        if four_rooms and executable == 'ir_line_follower':
+            continue  # Controller can emulate tape following if the IR process exits.
+        actions.append(RegisterEventHandler(OnProcessExit(
             target_action=node, on_exit=[EmitEvent(event=Shutdown(
-                reason=name + ' exited; stopping the simulation'))]))])
+                reason=name + ' exited; stopping the simulation'))])))
     return actions
 
 
@@ -68,6 +74,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('gui', default_value='true', choices=['true', 'false']),
         DeclareLaunchArgument('layout', default_value='four_rooms', choices=['four_rooms', 'single_room']),
+        DeclareLaunchArgument('ir_enabled', default_value='true', choices=['true', 'false'],
+                              description='Disable probes to exercise simulated tape-following recovery'),
         DeclareLaunchArgument('destination_station', default_value='',
                               description='Optional override of destination in config'),
         DeclareLaunchArgument('config', default_value='', description='Defaults to the selected layout configuration'),

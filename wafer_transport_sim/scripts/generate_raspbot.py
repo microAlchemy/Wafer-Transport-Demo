@@ -144,16 +144,18 @@ def generate():
     # Custom wafer-module brackets and downward camera are not stock Raspbot parts.
     solid(body, 'custom_wand_mount', (.022, .032, .038), (-.075, 0, .043), color=SILVER, collision=False)
     solid(body, 'custom_wand_upright', (.012, .016, .220), (-.075, 0, .150), color=SILVER, collision=False)
-    solid(body, 'custom_down_camera_bracket', (.024, .014, .006), (.119, 0, .011), color=SILVER, collision=False)
-    solid(body, 'custom_down_camera', (.012, .016, .008), (.130, 0, .016), color=BLACK, collision=False)
-    camera(body, 'down_camera', (.13, 0, .015), (0, math.pi/2, 0), 320, 240, 1.3, '/down_camera/image_raw')
+    # Mount below the chassis and behind the IR board so neither stock part
+    # occludes the floor image.  The optical centre remains 41 mm above ground.
+    solid(body, 'custom_down_camera_bracket', (.020, .014, .006), (.070, 0, -.015), color=SILVER, collision=False)
+    solid(body, 'custom_down_camera', (.012, .016, .008), (.070, 0, -.019), color=BLACK, collision=False)
+    camera(body, 'down_camera', (.070, 0, -.025), (0, math.pi/2, 0), 320, 240, 1.8, '/down_camera/image_raw')
     plugin(model, 'mecanum-drive', 'MecanumDrive',
            front_left_joint='front_left_wheel_joint', front_right_joint='front_right_wheel_joint',
            back_left_joint='rear_left_wheel_joint', back_right_joint='rear_right_wheel_joint',
            wheel_separation=spec.TRACK, wheelbase=spec.WHEELBASE, wheel_radius=spec.WHEEL_RADIUS,
            topic='/cmd_vel', odom_topic='/odom', tf_topic='/robot/tf', frame_id='odom', child_frame_id='base_link',
-           odom_publish_frequency=30, min_velocity=-.55, max_velocity=.55,
-           min_acceleration=-.8, max_acceleration=.8)
+           odom_publish_frequency=30, min_velocity=-1.5, max_velocity=1.5,
+           min_acceleration=-1.5, max_acceleration=1.5)
     save_model('raspbot_v2', root)
     return root
 

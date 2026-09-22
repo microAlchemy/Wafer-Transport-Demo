@@ -183,3 +183,13 @@
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
+- ros_topic_name: /actuators/camera_pan
+  gz_topic_name: /actuators/camera_pan
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/camera_tilt
+  gz_topic_name: /actuators/camera_tilt
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
