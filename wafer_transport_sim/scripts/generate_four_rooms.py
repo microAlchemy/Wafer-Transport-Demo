@@ -4,11 +4,12 @@ import math
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
+import cv2
 import qrcode
 import yaml
 from PIL import Image, ImageDraw
-from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link,
-                             solid, textured_plane, save_model, write_xml)
+from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link, joint,
+                             attachment, new_model, solid, textured_plane, save_model, write_xml)
 from generate_raspbot import generate as generate_raspbot
 
 sys.path.insert(0, str(ROOT))
@@ -67,6 +68,45 @@ def generate():
         el(inc, 'uri', 'model://' + (resource or name))
         el(inc, 'name', name)
         pose(inc, (*xyz, 0, 0, heading))
+
+    def process_robot(room):
+        """A rail shuttle that carries the wafer through one process cell."""
+        name = f'room_{room.number}_process_robot'
+        root, model = new_model(name)
+        base = link(model, 'base', mass=8., size=(.95, .06, .06))
+        solid(base, 'rail', (.95, .055, .055), (0, 0, .37), color=SILVER)
+        anchor = el(model, 'joint', name='world_fixed', type='fixed')
+        el(anchor, 'parent', 'world')
+        el(anchor, 'child', 'base')
+        direction = room.direction
+        entry = -direction * (ROOM_LENGTH/2-.105)
+        carriage = link(model, 'carriage', (entry, 0, .37), mass=.7, size=(.12, .12, .12))
+        solid(carriage, 'carriage', (.12, .12, .12), color='.85 .25 .08 1')
+        x_name = room.process_joint('x')
+        joint(model, x_name, 'base', 'carriage', axis=f'{direction} 0 0',
+              limits=(0., ROOM_LENGTH-.21), controller={'cmd_max': .20})
+        gripper = link(model, 'gripper', (entry, 0, .28), mass=.25, size=(.08, .08, .08))
+        solid(gripper, 'vertical_arm', (.045, .045, .18), (0, 0, .05), color='.12 .18 .24 1')
+        solid(gripper, 'vacuum_cup', (.035, .012), (0, 0, -.095), color='.05 .05 .05 1',
+              shape='cylinder')
+        z_name = room.process_joint('z')
+        joint(model, z_name, 'carriage', 'gripper', axis='0 0 1', limits=(-.12, 0.),
+              controller={'cmd_max': .10})
+        attachment(model, room.process_attachment(), 'gripper', 'wafer')
+        state = plugin(model, 'joint-state-publisher', 'JointStatePublisher')
+        el(state, 'topic', f'/process/room_{room.number}/joint_states')
+        save_model(name, root)
+        include(name, (room.x, room.y, 0.))
+        for topic, ros_type, gz_type, direction_name in [
+                ('/actuators/'+x_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
+                ('/actuators/'+z_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
+                (f'/process/room_{room.number}/joint_states', 'sensor_msgs/msg/JointState', 'gz.msgs.Model', 'GZ_TO_ROS'),
+                (f'/attachments/{room.process_attachment()}/attach', 'std_msgs/msg/Empty', 'gz.msgs.Empty', 'ROS_TO_GZ'),
+                (f'/attachments/{room.process_attachment()}/detach', 'std_msgs/msg/Empty', 'gz.msgs.Empty', 'ROS_TO_GZ'),
+                (f'/attachments/{room.process_attachment()}/state', 'std_msgs/msg/String', 'gz.msgs.StringMsg', 'GZ_TO_ROS')]:
+            mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
+                                 ros_type_name=ros_type, gz_type_name=gz_type,
+                                 direction=direction_name))
 
     mappings = [m for m in yaml.safe_load((ROOT/'config/bridge.yaml').read_text())
                 if m['ros_topic_name'] not in ('/door/joint_states', '/actuators/door_z')]
@@ -136,25 +176,34 @@ def generate():
                 mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
                                      ros_type_name=ros_type, gz_type_name=gz_type, direction=direction))
         tx, ty, _ = room.table
-        solid(structure, 'wafer_table', (.16, .16, .154), (tx, ty, .077), color=BLUE)
+        solid(structure, 'process_stage', (.22, .22, .154), (tx, ty, .077), color=BLUE)
+        for side in ('entry', 'exit'):
+            hx, hy, _ = room.handoff(side)
+            solid(structure, f'{side}_handoff', (.16, .16, .154), (hx, hy, .077), color=SILVER)
         solid(structure, 'equipment', (.28, .12, .28),
               (room.x-.27*room.direction, cy+.25*room.direction, .14), color=SILVER)
-        qr = qrcode.make(room.code).convert('RGB')
-        qr.save(ROOT/f'textures/room_{room.number}_qr.png')
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
+        for side, tag_id in (('entry', 2*(room.number-1)), ('exit', 2*(room.number-1)+1)):
+            marker = cv2.aruco.generateImageMarker(dictionary, tag_id, 360)
+            marker = cv2.copyMakeBorder(marker, 40, 40, 40, 40, cv2.BORDER_CONSTANT, value=255)
+            cv2.imwrite(str(ROOT/f'textures/room_{room.number}_{side}_apriltag.png'), marker)
         label = Image.new('RGB', (340, 50), '#cfe3f3')
         action = ('SOURCE', 'TRANSFER', 'TRANSFER', 'DESTINATION')[room.number-1]
         ImageDraw.Draw(label).text((8, 18), f'ROOM {room.number} / {action} / CLASS 100', fill='#173b50')
         label.resize((1020, 150)).save(ROOT/f'textures/room_{room.number}_label.png')
-        sign_x = room.x + room.direction*.28
-        sign_y = room.y + room.direction*(ROOM_DEPTH/2+.02)
-        normal = room.heading + math.pi
-        textured_plane(structure, 'room_qr', f'room_{room.number}_qr.png', .22, .22,
-                       (sign_x, sign_y, .25), (0, 0, normal), texture_prefix='../textures/')
+        for side in ('entry', 'exit'):
+            sign_x = room.door_x(side)
+            sign_y = room.y - .19
+            normal = room.heading + (math.pi if side == 'entry' else 0.)
+            textured_plane(structure, f'{side}_apriltag',
+                           f'room_{room.number}_{side}_apriltag.png', .20, .20,
+                           (sign_x, sign_y, .27), (0, 0, normal), texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
                        (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
                        (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
                        (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
+        process_robot(room)
     generate_raspbot()
     include('transport_robot', (*START, 0.), resource='raspbot_v2')
     for joint_name in ('camera_pan', 'camera_tilt'):
@@ -163,7 +212,7 @@ def generate():
                              ros_type_name='std_msgs/msg/Float64',
                              gz_type_name='gz.msgs.Double', direction='ROS_TO_GZ'))
     include('carrier', (*START, .15))
-    include('wafer', (ROOMS[0].table[0], ROOMS[0].table[1], .156))
+    include('wafer', (*START, .156))
     gui = el(world, 'gui', fullscreen='false')
     view = el(gui, 'plugin', filename='MinimalScene', name='3D View')
     el(view, 'engine', 'ogre2')

@@ -45,7 +45,8 @@ def launch_nodes(context):
                   parameters=[{'config_file': bridge_config,
                                'use_sim_time': True}])
     actions = [bridge, gazebo]
-    executables = (('four_room_controller', 'ir_line_follower') if four_rooms else
+    executables = (('four_room_controller', 'ir_line_follower', 'apriltag_detector',
+                    'process_cell_controller') if four_rooms else
                    ('wafer_handler', 'line_follower', 'qr_detector',
                     'docking_controller', 'transport_controller', 'system_manager'))
     for executable in executables:

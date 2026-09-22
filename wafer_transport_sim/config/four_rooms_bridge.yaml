@@ -123,6 +123,36 @@
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
+- ros_topic_name: /actuators/room_1_process_x
+  gz_topic_name: /actuators/room_1_process_x
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/room_1_process_z
+  gz_topic_name: /actuators/room_1_process_z
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /process/room_1/joint_states
+  gz_topic_name: /process/room_1/joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /attachments/process_1/attach
+  gz_topic_name: /attachments/process_1/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_1/detach
+  gz_topic_name: /attachments/process_1/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_1/state
+  gz_topic_name: /attachments/process_1/state
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
 - ros_topic_name: /actuators/room_2_entry_z
   gz_topic_name: /actuators/room_2_entry_z
   ros_type_name: std_msgs/msg/Float64
@@ -142,6 +172,36 @@
   gz_topic_name: /doors/room_2/exit/joint_states
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /actuators/room_2_process_x
+  gz_topic_name: /actuators/room_2_process_x
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/room_2_process_z
+  gz_topic_name: /actuators/room_2_process_z
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /process/room_2/joint_states
+  gz_topic_name: /process/room_2/joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /attachments/process_2/attach
+  gz_topic_name: /attachments/process_2/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_2/detach
+  gz_topic_name: /attachments/process_2/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_2/state
+  gz_topic_name: /attachments/process_2/state
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
   direction: GZ_TO_ROS
 - ros_topic_name: /actuators/room_3_entry_z
   gz_topic_name: /actuators/room_3_entry_z
@@ -163,6 +223,36 @@
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
   direction: GZ_TO_ROS
+- ros_topic_name: /actuators/room_3_process_x
+  gz_topic_name: /actuators/room_3_process_x
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/room_3_process_z
+  gz_topic_name: /actuators/room_3_process_z
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /process/room_3/joint_states
+  gz_topic_name: /process/room_3/joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /attachments/process_3/attach
+  gz_topic_name: /attachments/process_3/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_3/detach
+  gz_topic_name: /attachments/process_3/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_3/state
+  gz_topic_name: /attachments/process_3/state
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
+  direction: GZ_TO_ROS
 - ros_topic_name: /actuators/room_4_entry_z
   gz_topic_name: /actuators/room_4_entry_z
   ros_type_name: std_msgs/msg/Float64
@@ -182,6 +272,36 @@
   gz_topic_name: /doors/room_4/exit/joint_states
   ros_type_name: sensor_msgs/msg/JointState
   gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /actuators/room_4_process_x
+  gz_topic_name: /actuators/room_4_process_x
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /actuators/room_4_process_z
+  gz_topic_name: /actuators/room_4_process_z
+  ros_type_name: std_msgs/msg/Float64
+  gz_type_name: gz.msgs.Double
+  direction: ROS_TO_GZ
+- ros_topic_name: /process/room_4/joint_states
+  gz_topic_name: /process/room_4/joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+- ros_topic_name: /attachments/process_4/attach
+  gz_topic_name: /attachments/process_4/attach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_4/detach
+  gz_topic_name: /attachments/process_4/detach
+  ros_type_name: std_msgs/msg/Empty
+  gz_type_name: gz.msgs.Empty
+  direction: ROS_TO_GZ
+- ros_topic_name: /attachments/process_4/state
+  gz_topic_name: /attachments/process_4/state
+  ros_type_name: std_msgs/msg/String
+  gz_type_name: gz.msgs.StringMsg
   direction: GZ_TO_ROS
 - ros_topic_name: /actuators/camera_pan
   gz_topic_name: /actuators/camera_pan

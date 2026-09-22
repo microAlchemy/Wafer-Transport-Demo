@@ -26,6 +26,13 @@ ir_line_follower:
     curve_speed: 0.09
     sensor_forward: 0.10684
     detection_radius: 0.025
+apriltag_detector:
+  ros__parameters:
+    confirmation_frames: 3
+process_cell_controller:
+  ros__parameters:
+    process_hold: 2.0
+    placement_hold: 0.5
 line_follower:
   ros__parameters:
     linear_speed: 0.20

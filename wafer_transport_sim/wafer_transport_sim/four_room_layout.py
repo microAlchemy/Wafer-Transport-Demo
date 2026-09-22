@@ -30,9 +30,25 @@ class Room:
 
     @property
     def table(self):
-        # Keep the table just inside the outside-facing service opening and
-        # within the 0.25 m reach of the wand parked on the exterior tape.
-        return self.x, self.y + self.direction * (HALF_DEPTH - 0.10), 0.155
+        """Blue process stage in the middle of the room."""
+        return self.x, self.y, 0.155
+
+    def handoff(self, side):
+        """Wafer support just inside the entry or exit guillotine door."""
+        sign = -self.direction if side == 'entry' else self.direction
+        return self.x + sign * (HALF_LENGTH - .05), self.y, .155
+
+    def handoff_heading(self, side):
+        return self.heading if side == 'entry' else (self.heading + math.pi) % (2*math.pi)
+
+    def process_joint(self, axis):
+        return f"room_{self.number}_process_{axis}"
+
+    def process_attachment(self):
+        return f"process_{self.number}"
+
+    def tag(self, side):
+        return f"ROOM_{self.number}_{side.upper()}"
 
     def door_x(self, side):
         return self.x + self.direction * (-HALF_LENGTH if side == "entry" else HALF_LENGTH)
@@ -240,6 +256,18 @@ def point_at(distance):
     return PATH[0]
 
 
+def heading_at(distance):
+    """Tangent heading of the closed tape route at a distance."""
+    distance %= LENGTH
+    accumulated = 0.0
+    for (ax, ay), (bx, by) in zip(PATH, PATH[1:]):
+        segment = math.hypot(bx-ax, by-ay)
+        if segment and accumulated + segment >= distance:
+            return math.atan2(by-ay, bx-ax)
+        accumulated += segment
+    return 0.0
+
+
 def room_stop(room, phase):
     """
     Return a tape-distance stop near a room door/work location.
@@ -247,18 +275,13 @@ def room_stop(room, phase):
     Entry/exit targets remain outside the enclosure instead of placing
     the main transport robot directly on the wall.
     """
-    offset = {
-        # Stop before the closed panel with the custom forward camera clear.
-        # In the 1 ft gap this is also the previous room's exit position.
-        "entry": -(HALF_LENGTH + 0.20),
-        "work": 0.0,
-        "exit": HALF_LENGTH - 0.20,
-    }[phase]
-
-    distance = project(
-        room.x + room.direction * offset,
-        room.route_y if phase == 'exit' else room.y,
-    )[0]
+    if phase in ('entry', 'exit'):
+        sign = -room.direction if phase == 'entry' else room.direction
+        # Stop in the corridor just outside the appropriate side wall.
+        x = room.x + sign*(HALF_LENGTH+CORRIDOR_WIDTH/2)
+        distance = project(x, room.y)[0]
+    else:
+        distance = project(room.x, room.route_y)[0]
     # Cycle the side-mounted doors while stopped clear of their swept planes.
     return distance
 
