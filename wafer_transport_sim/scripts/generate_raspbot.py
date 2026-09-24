@@ -50,7 +50,7 @@ def roller(wheel, name, theta, handed):
 
 def generate():
     # Retain only the proven custom wafer mechanisms and their plugin wiring.
-    root = ET.parse(ROOT/'models/transport_robot/model.sdf').getroot()
+    root = ET.parse(ROOT/'scripts/raspbot_base.sdf').getroot()
     model = root.find('model')
     for name in ('base_link', 'left_wheel', 'right_wheel'):
         model.remove(model.find(f"link[@name='{name}']"))
@@ -138,7 +138,7 @@ def generate():
     solid(tilt, 'lens_glass', (.0065, .001), (.0285, 0, 0),
           shape='cylinder', rpy=(0, math.pi/2, 0), color='.06 .14 .19 1', collision=False)
     camera(tilt, 'forward_camera', (spec.CAMERA_OFFSET, 0, 0), (0, 0, 0),
-           640, 480, spec.CAMERA_FOV, '/camera/image_raw', rate=8)
+           640, 480, spec.CAMERA_FOV, '/camera/image_raw', rate=60)
     servo(model, 'camera_pan', 'base_link', 'camera_pan_link', '0 0 1', spec.PAN_LIMIT)
     servo(model, 'camera_tilt', 'camera_pan_link', 'camera_tilt_link', '0 1 0', spec.TILT_LIMIT)
     # Custom wafer-module brackets and downward camera are not stock Raspbot parts.

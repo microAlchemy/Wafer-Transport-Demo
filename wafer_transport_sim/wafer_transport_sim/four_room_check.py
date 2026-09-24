@@ -1,4 +1,4 @@
-"""Launch and observe the real four-room simulation on Ubuntu, with fault cases."""
+"""Launch and observe the real eleven-glovebox simulation on Ubuntu."""
 import argparse
 import json
 import os
@@ -19,8 +19,9 @@ import yaml
 from .common import DemoNode, LATCHED
 from .core import placed
 from .four_room_layout import ROOMS, ROOM_CODES, START
+from .route_watch import RouteWatch
 
-RECOVERY_SCENARIOS = {'lost_line', 'missing_ir', 'missing_images', 'missing_room_qr'}
+RECOVERY_SCENARIOS = {'lost_line', 'missing_ir'}
 
 class Observer(DemoNode):
     def __init__(self, scenario):
@@ -28,18 +29,22 @@ class Observer(DemoNode):
         self.set_parameters([Parameter('use_sim_time', value=True)])
         self.scenario = scenario
         self.history = []
-        self.qrs = set()
+        self.tags = set()
         self.placements = set()
         self.frames = {'camera': 0, 'down_camera': 0}
         self.injected = False
         self.finished = None
         self.errors = []
+        # Ordered (selected edge, track) observations of the two-track route.
+        self.route = RouteWatch()
         self.bridge = CvBridge()
         for topic in ('/transport/state', '/rooms/active', '/rooms/completed', '/system/fault',
-                      '/transport/steering_mode'):
+                      '/transport/steering_mode', '/transport/track', '/transport/route_segment'):
             self.watch(topic, String, LATCHED)
+        self.watch('/process/state', String, LATCHED)
         self.watch('/wafer_delivered', Bool, LATCHED)
         self.watch('/cmd_vel', Twist)
+        self.watch('/process/ready', String, LATCHED)
         self.cycles = set()
         self.saw_simulated_ir = False
         self.watch_attachment('vacuum')
@@ -50,7 +55,7 @@ class Observer(DemoNode):
         for room in ROOMS:
             for side in ('entry', 'exit'):
                 self.watch_joints(f'/doors/room_{room.number}/{side}/joint_states')
-        self.create_subscription(String, '/detected_station', lambda m: self.qrs.add(m.data), 10)
+        self.create_subscription(String, '/detected_apriltag', lambda m: self.tags.add(m.data), 10)
         self.out = {name: self.create_publisher(Image, f'/{name}/image_raw', qos_profile_sensor_data)
                     for name in self.frames}
         for name in self.frames:
@@ -59,12 +64,12 @@ class Observer(DemoNode):
 
     def image(self, name, msg):
         self.frames[name] += 1
-        if self.value('/transport/state') == 'ENTER_ROOM' and self.scenario in {'lost_line', 'missing_images'}:
+        if self.value('/transport/state') == 'TRAVEL_TO_EXIT' and self.scenario in {'lost_line', 'missing_images'}:
             self.injected = True
         if self.injected and self.scenario == 'missing_images':
             return
         if ((self.injected and self.scenario == 'lost_line' and name == 'down_camera') or
-                (self.scenario == 'missing_room_qr' and name == 'camera')):
+                (self.scenario == 'missing_apriltag' and name == 'camera')):
             pixels = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
             pixels[:] = 255
             new = self.bridge.cv2_to_imgmsg(pixels, 'bgr8')
@@ -75,6 +80,9 @@ class Observer(DemoNode):
 
     def check(self):
         room, state = self.value('/rooms/active'), self.value('/transport/state')
+        self.route.record(self.value('/transport/track'), self.value('/transport/route_segment'),
+                          self.received.get('/transport/track'),
+                          self.received.get('/transport/route_segment'))
         if self.value('/transport/steering_mode') == 'SIMULATED_IR':
             self.saw_simulated_ir = True
             if self.scenario in {'lost_line', 'missing_ir'}:
@@ -84,55 +92,70 @@ class Observer(DemoNode):
             self.send('/ir/valid', Bool, False)
             self.pub('/ir/cmd_vel', Twist).publish(Twist())
         cmd = self.values.get('/cmd_vel', Twist())
-        if state in {'OPEN_ENTRY', 'HOLD_ENTRY', 'CLOSE_ENTRY', 'OPEN_EXIT', 'HOLD_EXIT', 'CLOSE_EXIT'}:
+        if state in {'OPEN_ENTRY', 'CLOSE_ENTRY', 'OPEN_EXIT', 'CLOSE_EXIT'}:
             if abs(cmd.linear.x)+abs(cmd.angular.z) > 1e-5:
                 self.errors.append('Motion commanded during door cycle')
-        if state in {'HOLD_ENTRY', 'HOLD_EXIT'} and room in ROOM_CODES:
-            side = 'entry' if state == 'HOLD_ENTRY' else 'exit'
-            target = ROOMS[ROOM_CODES.index(room)].door_joint(side)
-            if self.at_joint(target, .52):
-                self.cycles.add((room, side))
+        if state in {'PICK_POSITION', 'PICK_LOWER', 'ATTACH', 'LIFT', 'PLACE_POSITION',
+                     'PLACE_LOWER', 'RELEASE', 'RETRACT', 'VERIFY_PLACE'} and room in ROOM_CODES:
+            selected = ROOMS[ROOM_CODES.index(room)]
+            for side in ('entry', 'exit'):
+                if self.at_joint(selected.door_joint(side), .52):
+                    self.cycles.add((room, side))
         if room and state and (not self.history or self.history[-1] != [room, state]):
             self.history.append([room, state])
         if state == 'VERIFY_PLACE' and room in ROOM_CODES and self.fresh('/poses/wafer') and self.attachment('vacuum') == 'detached':
-            if placed(self.position('wafer'), ROOMS[ROOM_CODES.index(room)].table, .012, .005):
-                self.placements.add((room, 'table'))
+            selected = ROOMS[ROOM_CODES.index(room)]
+            for side in ('entry', 'exit'):
+                if placed(self.position('wafer'), selected.handoff(side), .018, .012):
+                    self.placements.add((room, side))
             cx, cy, cz = self.position('carrier')
             if self.fresh('/poses/carrier') and placed(self.position('wafer'), (cx, cy, cz+.006), .012, .005):
                 self.placements.add((room, 'carrier'))
+        ready = self.value('/process/ready')
+        if ready in ROOM_CODES and self.fresh('/poses/wafer'):
+            selected = ROOMS[ROOM_CODES.index(ready)]
+            if placed(self.position('wafer'), selected.handoff('exit'), .018, .012):
+                self.placements.add((ready, 'exit'))
         if self.scenario == 'failed_pickup' and state == 'ATTACH':
             self.injected = True
         if self.scenario == 'stuck_door' and state == 'OPEN_ENTRY':
+            self.injected = True
+        if self.scenario == 'failed_process' and self.value('/process/state') == 'FAULT':
             self.injected = True
         if self.value('/system/fault') or self.value('/wafer_delivered'):
             if self.finished is None:
                 self.finished = self.now()
             # Continue for two simulation seconds to check stable support and stop.
-            if self.value('/wafer_delivered') and not placed(self.position('wafer'), ROOMS[-1].table, .012, .005):
-                self.errors.append('Wafer left final supporting table after delivery')
+            if self.value('/wafer_delivered'):
+                cx, cy, cz = self.position('carrier')
+                if not placed(self.position('wafer'), (cx, cy, cz+.006), .012, .008):
+                    self.errors.append('Wafer left onboard carrier after delivery')
             return self.now()-self.finished >= 2.
         return False
 
     def report(self):
         if self.scenario == 'nominal' or self.scenario in RECOVERY_SCENARIOS:
             if self.value('/transport/state') != 'COMPLETE' or not self.value('/wafer_delivered'):
-                self.errors.append('Four-room mission did not complete')
+                self.errors.append('Eleven-glovebox mission did not complete')
             if self.value('/system/fault'):
                 self.errors.append('Unexpected mission fault: ' + self.value('/system/fault'))
             if self.value('/rooms/completed') != ','.join(ROOM_CODES):
-                self.errors.append('Rooms were not completed in order')
+                self.errors.append('Gloveboxes were not completed in order')
+            required_tags = {r.tag(side) for r in ROOMS for side in ('entry', 'exit')}
+            if not required_tags <= self.tags:
+                self.errors.append('Missing actual AprilTag observations')
             if self.scenario in RECOVERY_SCENARIOS and not self.injected:
                 self.errors.append('Recovery scenario was never exercised')
             if self.scenario in {'lost_line', 'missing_ir'} and not self.saw_simulated_ir:
                 self.errors.append('Simulated IR recovery was not observed')
             if self.cycles != {(r.code, side) for r in ROOMS for side in ('entry', 'exit')}:
-                self.errors.append('Not all eight door openings were verified')
-            required = {('ROOM_1', 'carrier'), ('ROOM_2', 'table'), ('ROOM_2', 'carrier'),
-                        ('ROOM_3', 'table'), ('ROOM_3', 'carrier'), ('ROOM_4', 'table')}
+                self.errors.append('Not all 22 door openings were verified')
+            required = {(r.code, location) for r in ROOMS for location in ('entry', 'exit', 'carrier')}
             if not required <= self.placements:
                 self.errors.append('Missing observed supported wafer placements')
             if not self.fresh('/poses/transport_robot') or not placed(self.position('transport_robot'), (*START, 0.), .04, .02):
-                self.errors.append('Robot did not return outside all four rooms')
+                self.errors.append('Robot did not return from all eleven gloveboxes')
+            self.errors.extend(self.route.errors())
             if self.attachment('vacuum') != 'detached':
                 self.errors.append('Final wafer still attached to wand')
             if self.attachment('carrier') != 'attached':
@@ -141,13 +164,16 @@ class Observer(DemoNode):
                 if [room.code, 'CLOSE_EXIT'] not in self.history:
                     self.errors.append('No verified exit sequence for ' + room.code)
                 for side in ('entry', 'exit'):
-                    if not self.at_joint(room.door_joint(side), 0.):
+                    if not self.at_joint(room.door_joint(side), -.002, .004):
                         self.errors.append('Door not closed: ' + room.door_joint(side))
         else:
             if not self.injected:
                 self.errors.append('Fault injection stage was never reached')
             if not self.value('/system/fault'):
                 self.errors.append('Expected a reported fault')
+            if (self.scenario == 'failed_process' and
+                    'process_cell_controller' not in self.value('/system/fault')):
+                self.errors.append('The process cell did not report the attachment fault')
             if self.value('/wafer_delivered'):
                 self.errors.append('False delivery success after injected failure')
         command = self.values.get('/cmd_vel', Twist())
@@ -155,15 +181,17 @@ class Observer(DemoNode):
                 abs(command.linear.x)+abs(command.linear.y)+abs(command.angular.z) > 1e-5):
             self.errors.append('Final zero velocity command missing')
         return dict(passed=not self.errors, scenario=self.scenario, errors=sorted(set(self.errors)),
-                    states=self.history, qrs=sorted(self.qrs), placements=sorted(self.placements),
+                    states=self.history, tags=sorted(self.tags), placements=sorted(self.placements),
                     frames=self.frames, door_cycles=sorted(self.cycles),
+                    tracks=self.route.pairs,
                     simulated_ir=self.saw_simulated_ir, fault=self.value('/system/fault'))
 
 
 def main(args=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--scenario', choices=['nominal', 'lost_line', 'missing_ir', 'missing_images', 'missing_room_qr',
-                                              'failed_pickup', 'stuck_door'], default='nominal')
+    parser.add_argument('--scenario', choices=['nominal', 'lost_line', 'missing_ir', 'missing_images', 'missing_apriltag',
+                                              'failed_pickup', 'failed_process', 'stuck_door'],
+                        default='nominal')
     parser.add_argument('--timeout', type=float, default=1800., help='Wall-clock limit; VMs may render slowly')
     parser.add_argument('--gui', action='store_true')
     parser.add_argument('--output', default='log/four_rooms')
@@ -172,7 +200,7 @@ def main(args=None):
     output.mkdir(parents=True, exist_ok=True)
     share = Path(get_package_share_directory('wafer_transport_sim'))
     mappings = yaml.safe_load((share/'config/four_rooms_bridge.yaml').read_text())
-    if opts.scenario in {'missing_images', 'missing_room_qr'}:
+    if opts.scenario in {'missing_images', 'missing_apriltag'}:
         removed = {'/camera/image_raw'}
         if opts.scenario == 'missing_images':
             removed.add('/down_camera/image_raw')
@@ -180,11 +208,13 @@ def main(args=None):
     for entry in mappings:
         if entry['ros_topic_name'] in ('/camera/image_raw', '/down_camera/image_raw'):
             entry['ros_topic_name'] = '/four_room_test' + entry['ros_topic_name']
-    omitted = {'failed_pickup': '/attachments/vacuum/attach', 'stuck_door': '/actuators/room_1_entry_z'}.get(opts.scenario)
+    omitted = {'failed_pickup': '/attachments/vacuum/attach',
+               'failed_process': '/attachments/process_1/attach',
+               'stuck_door': '/actuators/room_1_entry_z'}.get(opts.scenario)
     mappings = [m for m in mappings if m['ros_topic_name'] != omitted]
     rclpy.init()
     node = Observer(opts.scenario)
-    if opts.scenario in {'missing_images', 'missing_room_qr'}:
+    if opts.scenario in {'missing_images', 'missing_apriltag'}:
         node.injected = True  # Camera bridges were omitted from this launch.
     process = None
     try:

@@ -11,17 +11,10 @@ gz sim --versions
 python3 -c 'import rclpy, cv2, cv_bridge; print("ROS/OpenCV imports OK; OpenCV", cv2.__version__)'
 share="$(ros2 pkg prefix --share wafer_transport_sim)"
 export GZ_SIM_RESOURCE_PATH="$share/models:$share:${GZ_SIM_RESOURCE_PATH:-}"
-gz sdf -k "$share/worlds/wafer_transport.sdf"
 gz sdf -k "$share/worlds/four_rooms.sdf"
 for model in "$share"/models/*/model.sdf; do
   gz sdf -k "$model"
 done
-for scenario in nominal lost_line missing_ir missing_images missing_room_qr failed_pickup stuck_door; do
+for scenario in nominal lost_line missing_ir missing_images missing_apriltag failed_pickup failed_process stuck_door; do
   ros2 run wafer_transport_sim four_room_check --scenario "$scenario"
-done
-for station in STATION_A STATION_B STATION_C; do
-  ros2 run wafer_transport_sim integration_check --destination "$station"
-done
-for scenario in missing_images lost_line failed_pickup missing_target stuck_door room_lost_line room_missing_images; do
-  ros2 run wafer_transport_sim integration_check --scenario "$scenario"
 done

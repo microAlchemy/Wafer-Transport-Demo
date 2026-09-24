@@ -19,13 +19,11 @@ setup(
     zip_safe=False,
     maintainer='Wafer Transport Demo maintainers',
     maintainer_email='maintainer@example.com',
-    description='ROS 2 wafer handling and visual transport simulation',
+    description='ROS 2 eleven-glovebox IR and AprilTag wafer transport simulation',
     license='Apache-2.0', url='https://github.com/srigan-s/Wafer-Transport-Demo',
     entry_points={'console_scripts': [
         f'{name} = {PACKAGE}.{name}:main' for name in (
-            'system_manager', 'wafer_handler', 'line_follower', 'ir_line_follower', 'qr_detector',
-            'apriltag_detector', 'process_cell_controller',
-            'transport_controller', 'docking_controller', 'integration_check',
+            'ir_line_follower', 'apriltag_detector', 'process_cell_controller',
             'four_room_controller', 'four_room_check')
     ]},
 )

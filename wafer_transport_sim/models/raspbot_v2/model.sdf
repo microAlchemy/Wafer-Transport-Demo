@@ -1912,7 +1912,7 @@
       <sensor name="forward_camera" type="camera">
         <pose>0.03 0 0 0 0 0</pose>
         <always_on>true</always_on>
-        <update_rate>8</update_rate>
+        <update_rate>60</update_rate>
         <topic>/camera/image_raw</topic>
         <camera>
           <horizontal_fov>1.9198621771937625</horizontal_fov>

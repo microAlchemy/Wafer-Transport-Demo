@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from wafer_transport_sim import raspbot_spec as spec
-from wafer_transport_sim.four_room_layout import CORRIDOR_WIDTH, PATH
+from wafer_transport_sim.four_room_layout import CORRIDOR_WIDTH, TAPE_SEGMENTS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,6 +58,7 @@ def test_camera_actuators_are_bridged_and_lens_is_unobstructed():
     root = model()
     sensor = root.find(".//link[@name='camera_tilt_link']/sensor[@name='forward_camera']")
     assert float(sensor.findtext('pose').split()[0]) > .029
+    assert float(sensor.findtext('update_rate')) == 60.
     down = root.find(".//link[@name='base_link']/sensor[@name='down_camera']")
     assert float(down.findtext('pose').split()[2]) < .033
     mappings = yaml.safe_load((ROOT/'config/four_rooms_bridge.yaml').read_text())
@@ -66,12 +67,13 @@ def test_camera_actuators_are_bridged_and_lens_is_unobstructed():
         assert topics['/actuators/'+name]['direction'] == 'ROS_TO_GZ'
 
 
-def test_one_foot_corridor_underlay_is_continuous_and_wide_enough():
+def test_every_tape_segment_has_a_one_foot_corridor_underlay():
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
     strips = world.findall(".//model[@name='loop_floor']//visual")
     corridor = [v for v in strips if v.get('name', '').startswith('corridor_')]
     tape = [v for v in strips if v.get('name', '').startswith('tape_')]
-    assert len(corridor) == len(tape) == sum(math.dist(a, b) > 1e-8 for a, b in zip(PATH, PATH[1:]))
+    # One 1 ft underlay for every black tape segment of the two-track network.
+    assert len(corridor) == len(tape) == len(TAPE_SEGMENTS)
     assert all(float(v.findtext('geometry/box/size').split()[1]) == pytest.approx(CORRIDOR_WIDTH)
                for v in corridor)
     assert CORRIDOR_WIDTH-spec.WIDTH > .13

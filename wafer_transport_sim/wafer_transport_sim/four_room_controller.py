@@ -1,7 +1,13 @@
-"""One command owner for a feedback-gated, four-room wafer mission.
+"""One command owner for a feedback-gated, eleven-glovebox wafer mission.
 
-World pose bounds the route and docking stops. The four-probe IR array provides
-forward steering. Doors, vacuum and wand transitions require measured feedback.
+World pose bounds the selected tape edge and the docking stops. The four-probe
+IR array supplies primary steering on the straight lanes; the route FSM steers
+the bounded junction states onto the edge it has selected, and pose-based
+fallback may follow that same selected edge. Doors, vacuum and wand transitions
+require measured feedback.
+
+AprilTag observations are scoped to one room and one decision, so a signed
+state authorises a single Track 1 <-> Track 2 transition and nothing else.
 """
 import math
 import time
@@ -11,20 +17,36 @@ from std_msgs.msg import Bool, String, Float64
 from rclpy.clock import Clock, ClockType
 from .common import DemoNode, LATCHED, run
 from .core import angle_error, clamp, placed, yaw
-from .four_room_layout import ROOMS, START, LENGTH, project, point_at, room_stop, door_clear
+from .four_room_layout import (ROOMS, START, EDGES, HOME_EDGE, TAIL_EDGE, edge_heading,
+                               DOOR_APPROACH_HEADING, edge_point, edge_project,
+                               entry_decision_stop, entry_rung, exit_rung,
+                               horizontal_door_clear, main_edge, room_stop, service_edge)
 
 TRANSFER = ('PICK_POSITION', 'PICK_LOWER', 'ATTACH', 'LIFT', 'PLACE_POSITION',
             'PLACE_LOWER', 'RELEASE', 'RETRACT', 'VERIFY_PLACE')
-DRIVING = {'APPROACH_ENTRY', 'ENTER_ROOM', 'EXIT_ROOM', 'RETURN_HOME'}
-TURNING = {'TURN_TO_TABLE', 'TURN_TO_ROUTE'}
+DRIVING = {'APPROACH_ENTRY', 'ADVANCE_ENTRY_JUNCTION', 'CROSS_ENTRY_JUNCTION',
+           'TRAVEL_TO_ENTRY', 'TRAVEL_TO_EXIT', 'TRAVEL_TO_RETURN_JUNCTION',
+           'CROSS_RETURN_JUNCTION', 'RETURN_HOME', 'HOME_RETURN'}
+TURNING = {'ALIGN_ENTRY_JUNCTION', 'ALIGN_SERVICE_LANE', 'ALIGN_ENTRY', 'ALIGN_AFTER_ENTRY',
+           'ALIGN_EXIT', 'ALIGN_AFTER_EXIT', 'ALIGN_RETURN_JUNCTION', 'ALIGN_MAIN_LANE',
+           'TURNAROUND'}
+DECISIONS = {'CONFIRM_ENTRY_TAG': 'entry', 'CONFIRM_EXIT_TAG': 'exit'}
+# The probes sit 0.10684 m ahead of the chassis, so the last probe length of
+# any leg has no tape under its footprint: a stop is exactly where the tape
+# legitimately ends.
+PROBE_LOOKAHEAD = .11
 
 
 class FourRoomController(DemoNode):
     def __init__(self):
         super().__init__('transport_controller')
         for name, default in [('route_speed', .20), ('room_speed', .15),
-                              ('turn_speed', .55), ('door_speed', .18), ('door_open_hold', .5),
-                              ('mission_timeout', 600.), ('startup_timeout_wall', 90.),
+                              ('turn_speed', .55), ('minimum_turn_speed', .12),
+                              ('turn_tolerance', .03), ('door_turn_tolerance', .012),
+                              ('door_speed', .18), ('door_open_hold', .5),
+                              ('mission_timeout', 1800.), ('startup_timeout_wall', 90.),
+                              ('apriltag_timeout', 12.), ('apriltag_freshness', 5.),
+                              ('tape_tolerance', .068),
                               ('intermediate_transfers', True), ('placement_hold', 1.),
                               ('minimum_cruise_speed', .07), ('curve_speed', .09),
                               ('braking_acceleration', .35), ('allow_sensor_fallback', True)]:
@@ -41,17 +63,29 @@ class FourRoomController(DemoNode):
             self.watch_pose(name)
         for name in ('vacuum', 'carrier'):
             self.watch_attachment(name)
+        self.watch('/apriltag/healthy', Bool)
+        self.watch('/process/ready', String, LATCHED)
+        self.watch('/process/state', String, LATCHED)
+        self.watch('/process/cells_detached', Bool, LATCHED)
+        self.create_subscription(String, '/detected_apriltag', self.detected_tag, 10)
         self.index = 0
         self.completed = []
-        self.progress = 0.
-        self.last_projection = 0.
         self.door_targets = {}
         self.stable_since = None
         self.transfers = []
-        self.source = 'table'
+        self.source = 'carrier'
         self.destination = 'carrier'
-        self.payload = 'table'
+        self.payload = 'carrier'
         self.payload_table = ROOMS[0].table
+        self.transfer_next = None
+        # Route selection: one finite edge at a time plus a decision-scoped tag
+        # window.  There is deliberately no permanent authorised-tag set.
+        self.leg = main_edge(ROOMS[0]).name
+        self.leg_distance = None
+        self.leg_engaged = False
+        self.scope = None
+        self.observed_tags = {}
+        self.tag_reports = {}
         self.started = None
         self.last_tick = self.now()
         self.wall_started = time.monotonic()
@@ -71,7 +105,118 @@ class FourRoomController(DemoNode):
 
     def transition(self, state):
         self.stable_since = None
-        self.change(state, f'[FourRooms] {self.room.code}: {state}')
+        if state in DECISIONS:
+            # Open one bounded authorisation window for this room and decision.
+            self.scope = (self.room.code, DECISIONS[state], self.now())
+        self.change(state, f'[Gloveboxes] {self.room.code}: {state}')
+
+    def detected_tag(self, msg):
+        self.observed_tags[msg.data] = self.now()
+        # Refresh every detection, but do not bury FSM/fault messages in frame logs.
+        if self.now()-self.tag_reports.get(msg.data, -float('inf')) >= 5.:
+            self.tag_reports[msg.data] = self.now()
+            self.get_logger().info(f'[AprilTag] observed {msg.data}; FSM={self.state}')
+
+    def tags_authorized(self, room, side):
+        """True only for a fresh observation inside the open room/decision scope."""
+        code, scoped_side, since = self.scope or ('', '', 0.)
+        if (code, scoped_side) != (room.code, side):
+            return False
+        seen = self.observed_tags.get(room.tag(side))
+        return (seen is not None and seen >= since and
+                self.now()-seen <= self.param('apriltag_freshness', 5.))
+
+    def consume_authorization(self):
+        """One-shot: a signed decision cannot authorise a later junction."""
+        self.scope = None
+
+    @property
+    def edge(self):
+        return EDGES[self.leg]
+
+    def select(self, edge):
+        """Select a finite route edge; repeated calls in one leg are free."""
+        if self.leg != edge.name:
+            self.leg = edge.name
+            self.leg_distance = None
+            self.leg_engaged = False
+
+    def lookahead_command(self, edge, distance=None, lookahead=.10):
+        """Pose-based steering toward the selected edge, never across lanes."""
+        x, y, _ = self.position('transport_robot')
+        if distance is None:
+            distance, _ = edge_project(edge, x, y)
+        target_distance = distance + lookahead
+        target_x, target_y = edge_point(edge, target_distance)
+        if target_distance > edge.length:
+            # Keep a point ahead along the selected edge's tangent. A target
+            # clamped to the endpoint can fall behind the robot in the final
+            # millimetres and command a spurious spin before a junction.
+            beyond = target_distance - edge.length
+            tangent = edge_heading(edge, edge.length)
+            target_x += beyond * math.cos(tangent)
+            target_y += beyond * math.sin(tangent)
+        error = angle_error(math.atan2(target_y-y, target_x-x), self.heading())
+        command = Twist()
+        command.linear.x = self.param('route_speed', .20)
+        command.angular.z = clamp(3.5*error, -1.4, 1.4)
+        return command
+
+    def follow(self, edge, target, speed, junction=False):
+        """Drive the selected edge to a measured along-edge distance.
+
+        Projection is always taken against the one selected edge, so parallel
+        lanes can never capture the robot.  Straight lanes steer on the IR
+        candidate; bounded junction states steer on the selected edge itself.
+        """
+        if not self.stowed() or self.attachment('vacuum') != 'detached':
+            self.fault('Travel requires a stowed wand and released vacuum')
+            return False
+        if not all(self.door_closed(self.room.door_joint(side)) for side in ('entry', 'exit')):
+            self.fault('Resume travel only after both doors are closed')
+            return False
+        x, y, _ = self.position('transport_robot')
+        distance, deviation = edge_project(edge, x, y)
+        if deviation > self.param('tape_tolerance', .068):
+            self.fault(f'Robot departed the selected {edge.name} edge ({deviation:.3f} m)')
+            return False
+        self.leg_engaged = True
+        if self.leg_distance is not None and distance-self.leg_distance < -.05:
+            self.fault('Selected-edge projection jumped backwards on ' + edge.name)
+            return False
+        self.leg_distance = distance if self.leg_distance is None else max(self.leg_distance,
+                                                                         distance)
+        remaining = target-distance
+        self.send('/docking_distance', Float64, remaining)
+        if remaining < -.04:
+            self.fault('Passed route stop without verified arrival')
+            return False
+        if remaining <= .004:
+            return self.stopped()
+        # IR is primary on the straight lanes.  Bounded junction states and the
+        # final probe length of a leg steer the selected edge directly.
+        ir_ready = self.primary_ready()
+        if junction or remaining <= PROBE_LOOKAHEAD:
+            candidate = self.lookahead_command(edge, distance)
+        elif ir_ready:
+            candidate = self.values['/ir/cmd_vel']
+        elif not self.fallback_active:
+            self.fault('Black tape lost by the IR sensor array')
+            return False
+        else:
+            candidate = self.lookahead_command(edge, distance)
+        # Brake toward the target, not the outer edge of the arrival window.
+        # Otherwise speed tends to zero just OUTSIDE that window and wheel
+        # deadband can prevent the FSM from ever reaching its decision state.
+        braking_speed = math.sqrt(2*self.param('braking_acceleration', .35)*max(0., remaining))
+        requested = min(max(0., candidate.linear.x), speed, braking_speed)
+        if remaining > .012:
+            requested = min(speed, max(self.param('minimum_cruise_speed', .07), requested))
+        self.command.angular.z = clamp(candidate.angular.z, -1.4, 1.4)
+        if abs(self.command.angular.z) > .20:
+            requested = min(requested, self.param('curve_speed', .09))
+        self.command.linear.x = requested
+        return False
 
     def wall_watchdog(self):
         now = time.monotonic()
@@ -86,15 +231,39 @@ class FourRoomController(DemoNode):
             self.send('/system/state', String, 'FAULT', True)
         if now-self.last_report > 3.:
             self.last_report = now
+            self.get_logger().info('[Decision] ' + self.decision_status())
             if self.state == 'WAIT_FOR_SIMULATOR':
                 issues = self.readiness_issues()
                 self.get_logger().info('[Startup] ' + ('; '.join(issues) or 'final readiness interlock'))
             elif self.state not in {'FAULT', 'COMPLETE'}:
-                self.get_logger().info(f'[FourRooms] {self.room.code} {self.state}; '
+                self.get_logger().info(f'[Gloveboxes] {self.room.code} {self.state}; '
                                        f'robot={self.position("transport_robot")}, vacuum={self.attachment("vacuum")}')
                 if self.state == 'HOME':
                     self.get_logger().info('[Home] waiting only for safety joints: ' +
                                            (', '.join(self.home_blockers()) or 'none'))
+
+    def decision_status(self):
+        if self.state == 'FAULT':
+            return 'FAULT: ' + str(self.value('/system/fault') or 'see preceding error')
+        expected = self.room.tag(DECISIONS[self.state]) if self.state in DECISIONS else '-'
+        authorized = self.tags_authorized(self.room, DECISIONS[self.state]) if self.state in DECISIONS else False
+        motion = self.values.get('/odom')
+        velocity = motion.twist.twist if motion is not None else None
+        measured = (f'v={math.hypot(velocity.linear.x, velocity.linear.y):.4f} '
+                    f'w={velocity.angular.z:.4f}' if velocity else 'odom missing')
+        turn_targets = {
+            'ALIGN_ENTRY_JUNCTION': math.pi/2, 'ALIGN_SERVICE_LANE': 0.,
+            'ALIGN_ENTRY': DOOR_APPROACH_HEADING,
+            'ALIGN_AFTER_ENTRY': 0., 'ALIGN_EXIT': DOOR_APPROACH_HEADING,
+            'ALIGN_AFTER_EXIT': 0., 'ALIGN_RETURN_JUNCTION': -math.pi/2,
+            'ALIGN_MAIN_LANE': 0., 'TURNAROUND': math.pi,
+        }
+        heading_status = ''
+        if self.state in turn_targets and self.fresh('/poses/transport_robot'):
+            heading_status = f' heading_error={angle_error(turn_targets[self.state], self.heading()):.3f}'
+        return (f'FSM={self.state} edge={self.leg} expected={expected} '
+                f'authorized={authorized} stopped={self.stopped()} {measured}{heading_status} '
+                f'cmd=({self.command.linear.x:.3f},{self.command.angular.z:.3f})')
 
     def required(self):
         return ['/odom', '/robot/joint_states', '/poses/transport_robot', '/poses/wafer', '/poses/carrier',
@@ -106,6 +275,8 @@ class FourRoomController(DemoNode):
             issues.append('IR array unavailable or black tape not detected')
         if self.attachment('vacuum') != 'detached':
             issues.append('initial vacuum detach not acknowledged')
+        if not self.value('/process/cells_detached'):
+            issues.append('internal process cells have not released the wafer')
         if not self.stopped():
             issues.append('odometry reports motion')
         return issues
@@ -130,14 +301,9 @@ class FourRoomController(DemoNode):
                   'SIMULATED_IR' if fallback else 'IR', True)
 
     def fallback_command(self):
-        x, y, _ = self.position('transport_robot')
-        along, _ = project(x, y)
-        target_x, target_y = point_at(along + .10)
-        error = angle_error(math.atan2(target_y-y, target_x-x), self.heading())
-        command = Twist()
-        command.linear.x = self.param('route_speed', .20)
-        command.angular.z = clamp(3.5*error, -1.4, 1.4)
-        return command
+        # Pretend IR follows only the edge the FSM selected; it cannot choose a
+        # lane, and it can never substitute for an AprilTag authorisation.
+        return self.lookahead_command(self.edge)
 
     def heading(self):
         return yaw(self.values['/poses/transport_robot'].pose.orientation)
@@ -155,7 +321,7 @@ class FourRoomController(DemoNode):
         blockers = [name for name in ('reach_1', 'reach_2', 'wand_x', 'wand_z')
                     if not self.at_joint(name, 0.)]
         blockers.extend(room.door_joint(side) for room in ROOMS for side in ('entry', 'exit')
-                        if not self.at_joint(room.door_joint(side), 0.))
+                        if not self.door_closed(room.door_joint(side)))
         return blockers
 
     def reach(self, value):
@@ -166,10 +332,26 @@ class FourRoomController(DemoNode):
     def clear(self, room, side):
         x, y, _ = self.position('transport_robot')
         # A door in the other row cannot overlap this robot.
-        if abs(y-room.y) > .30:
-            return True
         extension = sum(self.joints.get(n, 0.) for n in ('reach_1', 'reach_2', 'wand_x'))
-        return door_clear(x, y, self.heading(), room.door_x(side), extension)
+        return horizontal_door_clear(x, y, self.heading(), room.door_position(side)[1], extension)
+
+    def door_status(self, name):
+        position = self.joints.get(name)
+        age = self.now()-self.joint_received.get(name, -float('inf'))
+        if position is None or not math.isfinite(position):
+            return f'{name}: missing or invalid position'
+        if not 0. <= age < self.param('sensor_timeout', 1.):
+            return f'{name}: stale feedback age={age:.3f}s position={position:.5f}m'
+        return f'{name}: position={position:.5f}m age={age:.3f}s (closed range -0.006..0.002m)'
+
+    def door_closed(self, name):
+        # The prismatic lower limit is -4 mm: settling downward closes the
+        # opening further. Keep the positive opening limit at 2 mm.
+        position = self.joints.get(name)
+        age = self.now()-self.joint_received.get(name, -float('inf'))
+        return (position is not None and math.isfinite(position) and
+                0. <= age < self.param('sensor_timeout', 1.) and
+                -.006 <= position <= .002)
 
     def door(self, side, opened, dt):
         # The robot must stay stopped throughout both strokes of every cycle.
@@ -185,58 +367,26 @@ class FourRoomController(DemoNode):
         current += clamp(target-current, -step, step)
         self.door_targets[name] = current
         self.joint(name, current)
-        return abs(current-target) < 1e-9 and self.at_joint(name, target)
+        return abs(current-target) < 1e-9 and (self.at_joint(name, target) if opened else self.door_closed(name))
 
     def align(self, target, tape=False):
         error = angle_error(target, self.heading())
-        if abs(error) < .015:
+        tolerance = (self.param('door_turn_tolerance', .012)
+                     if self.state in {'ALIGN_ENTRY', 'ALIGN_EXIT'}
+                     else self.param('turn_tolerance', .03))
+        if abs(error) < tolerance:
             return self.stopped() and (not tape or self.fallback_active or
                                        (self.fresh('/ir/valid') and self.value('/ir/valid')))
-        self.command.angular.z = clamp(2.5*error, -self.param('turn_speed', .55), self.param('turn_speed', .55))
-        return False
-
-    def drive(self, target, inside=False):
-        if not self.stowed() or self.attachment('vacuum') != 'detached':
-            self.fault('Travel requires a stowed wand and released vacuum')
-            return False
-        ir_ready = self.primary_ready()
-        if not ir_ready and not self.fallback_active:
-            self.fault('Black tape lost by the IR sensor array')
-            return False
-        x, y, _ = self.position('transport_robot')
-        _, deviation = project(x, y)
-        # The outside detours use 0.1524 m-radius corners.  A 50 mm tracking
-        # envelope still keeps the 90 mm half-width robot inside the 1 ft lane.
-        if deviation > .068:
-            self.fault(f'Robot departed tape corridor ({deviation:.3f} m)')
-            return False
-        if not all(self.at_joint(self.room.door_joint(side), 0.) for side in ('entry', 'exit')):
-            self.fault('Resume travel only after both doors are closed')
-            return False
-        remaining = target-self.progress
-        self.send('/docking_distance', Float64, remaining)
-        if remaining < -.01:
-            self.fault('Passed route stop without verified arrival')
-            return False
-        if remaining <= .004:
-            return self.stopped()
-        candidate = self.values['/ir/cmd_vel'] if ir_ready else self.fallback_command()
-        speed = self.param('room_speed' if inside else 'route_speed', .15 if inside else .20)
-        # Keep rolling between checkpoints, then use the configured physical
-        # deceleration for a short controlled stop.  A proportional-to-distance
-        # cap here caused the old controller to crawl and appear stopped.
-        braking_speed = math.sqrt(2*self.param('braking_acceleration', .35)*max(0., remaining-.004))
-        requested = min(max(0., candidate.linear.x), speed, braking_speed)
-        if remaining > .012:
-            requested = min(speed, max(self.param('minimum_cruise_speed', .07), requested))
-        self.command.angular.z = clamp(candidate.angular.z, -1.4, 1.4)
-        if abs(self.command.angular.z) > .20:
-            requested = min(requested, self.param('curve_speed', .09))
-        self.command.linear.x = requested
+        limit = self.param('turn_speed', .55)
+        minimum = min(self.param('minimum_turn_speed', .12), limit)
+        self.command.angular.z = math.copysign(
+            min(limit, max(minimum, abs(2.5*error))), error)
         return False
 
     def target_position(self, location):
-        if location == 'table':
+        if location in ('entry', 'exit'):
+            return self.room.handoff(location)
+        if location == 'process':
             return self.room.table
         cx, cy, cz = self.position('carrier')
         return cx, cy, cz+.006
@@ -249,19 +399,22 @@ class FourRoomController(DemoNode):
             self.stable_since = self.now()
         return self.now()-self.stable_since >= self.param('placement_hold', 1.)
 
-    def table_reach(self):
+    def support_reach(self, location):
         rx, ry, _ = self.position('transport_robot')
-        tx, ty, _ = self.room.table
+        tx, ty, _ = self.target_position(location)
         return clamp(math.hypot(tx-rx, ty-ry), 0., .269)
 
     def transfer_step(self):
-        if not self.stopped() or not all(self.at_joint(self.room.door_joint(side), 0.) for side in ('entry', 'exit')):
-            self.fault('Wafer transfer requires stopped robot and both room doors closed')
+        handoff = self.destination if self.destination in ('entry', 'exit') else self.source
+        door_ok = (handoff in ('entry', 'exit') and self.at_joint(self.room.door_joint(handoff), .52) and
+                   self.door_closed(self.room.door_joint('exit' if handoff == 'entry' else 'entry')))
+        if not self.stopped() or not door_ok:
+            self.fault('Wafer handoff requires stopped robot and the correct open door')
             return
-        source_reach = self.table_reach() if self.source == 'table' else 0.
-        target_reach = self.table_reach() if self.destination == 'table' else 0.
-        source_z = -.14 if self.source == 'table' else -.136
-        target_z = -.14 if self.destination == 'table' else -.136
+        source_reach = self.support_reach(self.source) if self.source != 'carrier' else 0.
+        target_reach = self.support_reach(self.destination) if self.destination != 'carrier' else 0.
+        source_z = -.14 if self.source != 'carrier' else -.136
+        target_z = -.14 if self.destination != 'carrier' else -.136
         verified = False
         s = self.state
         if s == 'PICK_POSITION':
@@ -298,7 +451,7 @@ class FourRoomController(DemoNode):
                 verified = self.attachment('vacuum') == 'detached'
                 if verified:
                     self.payload = self.destination
-                    self.payload_table = self.room.table
+                    self.payload_table = self.target_position(self.destination)
         elif s == 'RETRACT':
             self.joint('wand_z', 0.)
             # Lift above the carrier rim before horizontal retraction.
@@ -313,14 +466,15 @@ class FourRoomController(DemoNode):
             elif self.transfers:
                 self.begin_transfer()
             else:
-                self.completed.append(self.room.code)
-                self.send('/rooms/completed', String, ','.join(self.completed), True)
-                self.get_logger().info(f'[FourRooms] {self.room.code}: wafer placement verified')
-                self.transition('TURN_TO_ROUTE')
+                self.get_logger().info(f'[Handoff] {self.room.code}: {self.destination} placement verified')
+                self.transition(self.transfer_next)
 
-    def begin_transfer(self):
+    def begin_transfer(self, transfers=None, next_state=None):
+        if transfers is not None:
+            self.transfers = list(transfers)
+            self.transfer_next = next_state
         self.source, self.destination = self.transfers.pop(0)
-        self.get_logger().info(f'[FourRooms] {self.room.code}: {self.source} -> {self.destination}')
+        self.get_logger().info(f'[Gloveboxes] {self.room.code}: {self.source} -> {self.destination}')
         self.transition('PICK_POSITION')
 
     def tick(self):
@@ -337,14 +491,14 @@ class FourRoomController(DemoNode):
             elif self.now()-self.entered > self.param('state_timeout', 60.):
                 self.fault('State timed out: ' + self.state)
             elif self.started is not None and self.now()-self.started > self.param('mission_timeout', 600.):
-                self.fault('Four-room mission timed out')
+                self.fault('Eleven-glovebox mission timed out')
             elif self.state not in {'INITIAL_DETACH', 'INITIAL_ATTACH', 'HOME'}:
                 rx, ry, _ = self.position('transport_robot')
                 if self.attachment('carrier') != 'attached' or not placed(self.position('carrier'), (rx, ry, .154), .02, .012):
                     self.fault('Onboard carrier retention lost')
                 if self.payload == 'wand' and self.state != 'RELEASE' and self.attachment('vacuum') != 'attached':
                     self.fault('Vacuum attachment lost during transfer')
-                if self.state in DRIVING | TURNING:
+                if self.state in DRIVING | TURNING and self.payload in {'carrier', 'entry', 'exit'}:
                     expected = self.target_position('carrier') if self.payload == 'carrier' else self.payload_table
                     if not placed(self.position('wafer'), expected, .022, .010):
                         self.fault('Wafer moved from its verified support')
@@ -352,23 +506,24 @@ class FourRoomController(DemoNode):
                 for room in ROOMS:
                     for side in ('entry', 'exit'):
                         active = room == self.room and ((side == 'entry' and self.state in
-                            {'OPEN_ENTRY', 'HOLD_ENTRY', 'CLOSE_ENTRY'}) or
-                            (side == 'exit' and self.state in {'OPEN_EXIT', 'HOLD_EXIT', 'CLOSE_EXIT'}))
-                        if not active and not self.at_joint(room.door_joint(side), 0.):
-                            self.fault('Unexpected open door: ' + room.door_joint(side))
+                            {'OPEN_ENTRY', *TRANSFER, 'CLOSE_ENTRY'}) or
+                            (side == 'exit' and self.state in {'OPEN_EXIT', *TRANSFER, 'CLOSE_EXIT'}))
+                        if not active:
+                            name = room.door_joint(side)
+                            self.joint(name, 0.)
+                            if not self.door_closed(name):
+                                self.fault('Door interlock: ' + self.door_status(name))
                 if (not self.fallback_active and self.state in DRIVING | TURNING and
                         (not self.fresh('/ir/healthy') or not self.value('/ir/healthy'))):
                     self.fault('IR sensor array unavailable during motion')
                 if self.state in TURNING and not self.stowed():
                     self.fault('Wand must be stowed before turning')
-        if self.state not in {'WAIT_FOR_SIMULATOR', 'FAULT', 'COMPLETE'}:
-            s, _ = project(*self.position('transport_robot')[:2])
-            delta = (s-self.last_projection+LENGTH/2) % LENGTH - LENGTH/2
-            if abs(delta) > .20:
-                self.fault('Discontinuous robot pose on loop')
-            else:
-                self.progress += delta
-                self.last_projection = s
+        if self.state in DRIVING | TURNING and self.leg_engaged:
+            # The selected edge bounds the pose; a parallel lane can never
+            # capture the robot because projection is taken against one edge.
+            _, deviation = edge_project(self.edge, *self.position('transport_robot')[:2])
+            if deviation > self.param('tape_tolerance', .068):
+                self.fault(f'Left the selected {self.edge.name} edge ({deviation:.3f} m)')
         self.step(dt)
         if self.state in {'FAULT', 'COMPLETE'}:
             self.command = Twist()
@@ -379,8 +534,11 @@ class FourRoomController(DemoNode):
                 if name in self.joints:
                     self.joint(name, self.joints[name])
         self.pub('/cmd_vel', Twist).publish(self.command)
+        self.send('/transport/decision', String, self.decision_status(), True)
         self.send('/transport/state', String, self.state, True)
         self.send('/system/state', String, self.state, True)
+        self.send('/transport/track', String, self.edge.track, True)
+        self.send('/transport/route_segment', String, self.edge.name, True)
         self.send('/rooms/active', String, self.room.code, True)
         self.send('/carrier_ready', Bool, self.payload == 'carrier' and self.state != 'FAULT', True)
         self.send('/wafer_delivered', Bool, self.state == 'COMPLETE', True)
@@ -389,11 +547,15 @@ class FourRoomController(DemoNode):
         s = self.state
         if s in {'FAULT', 'COMPLETE'}:
             return
+        room = self.room
+        entry_leg, exit_leg = main_edge(room), service_edge(room)
         if s == 'WAIT_FOR_SIMULATOR':
-            # Stock detachable joints start attached; release the wafer on its table.
+            # The mission starts with the wafer supported in the onboard carrier.
+            self.select(entry_leg)
             self.attach('vacuum', False)
             if (self.fresh(*self.required()) and (self.primary_ready() or self.fallback_active) and
-                    self.attachment('vacuum') == 'detached' and self.stopped()):
+                    self.attachment('vacuum') == 'detached' and self.stopped() and
+                    self.value('/process/cells_detached')):
                 self.started = self.now()
                 self.transition('INITIAL_DETACH')
         elif s == 'INITIAL_DETACH':
@@ -417,74 +579,143 @@ class FourRoomController(DemoNode):
                     self.joint(room.door_joint(side), 0.)
             if not self.home_blockers():
                 self.transition('APPROACH_ENTRY')
+                self.select(entry_leg)
         elif s == 'APPROACH_ENTRY':
-            if self.drive(room_stop(self.room, 'entry')):
+            # Track 1 transit to the pre-junction decision point.
+            self.select(entry_leg)
+            if self.follow(entry_leg, entry_decision_stop(room), self.param('route_speed', .20)):
+                self.transition('CONFIRM_ENTRY_TAG')
+        elif s == 'CONFIRM_ENTRY_TAG':
+            # A fresh, in-scope entry tag authorises Track 1 -> Track 2.
+            if self.tags_authorized(room, 'entry') and self.stopped():
+                self.get_logger().info(f'[Decision] {room.tag("entry")}: TRACK_1 -> TRACK_2 authorized')
+                self.transition('ADVANCE_ENTRY_JUNCTION')
+            elif self.now()-self.entered > self.param('apriltag_timeout', 12.):
+                self.fault('Expected AprilTag not confirmed before the Track 1 junction: ' +
+                           room.tag('entry'))
+        elif s == 'ADVANCE_ENTRY_JUNCTION':
+            # Creep to the junction mouth with the authorisation already held.
+            self.select(entry_leg)
+            if self.follow(entry_leg, entry_leg.length, self.param('room_speed', .15)):
+                self.transition('ALIGN_ENTRY_JUNCTION')
+        elif s == 'ALIGN_ENTRY_JUNCTION':
+            self.select(entry_rung(room))
+            if self.align(math.pi/2):
+                self.consume_authorization()
+                self.transition('CROSS_ENTRY_JUNCTION')
+        elif s == 'CROSS_ENTRY_JUNCTION':
+            # Explicit selected-edge steering across the transverse rung.
+            edge = entry_rung(room)
+            if self.follow(edge, edge.length, self.param('room_speed', .15), junction=True):
+                self.transition('ALIGN_SERVICE_LANE')
+        elif s == 'ALIGN_SERVICE_LANE':
+            self.select(exit_leg)
+            if self.align(0., tape=True):
+                self.transition('TRAVEL_TO_ENTRY')
+        elif s == 'TRAVEL_TO_ENTRY':
+            if self.follow(exit_leg, room_stop(room, 'entry'), self.param('room_speed', .15)):
+                self.transition('ALIGN_ENTRY')
+        elif s == 'ALIGN_ENTRY':
+            if self.align(DOOR_APPROACH_HEADING):
                 self.transition('OPEN_ENTRY')
         elif s == 'OPEN_ENTRY':
             if not self.stopped():
                 return
             if self.door('entry', True, dt):
-                self.transition('HOLD_ENTRY')
-        elif s == 'HOLD_ENTRY':
-            if (self.door('entry', True, dt) and
-                    self.now()-self.entered >= self.param('door_open_hold', .5)):
-                self.transition('CLOSE_ENTRY')
+                self.begin_transfer([('carrier', 'entry')], 'CLOSE_ENTRY')
         elif s == 'CLOSE_ENTRY':
             if self.door('entry', False, dt):
-                self.transition('ENTER_ROOM')
-        elif s == 'ENTER_ROOM':
-            if self.drive(room_stop(self.room, 'work'), inside=True):
-                self.transition('TURN_TO_TABLE')
-        elif s == 'TURN_TO_TABLE':
-            if self.align(self.room.work_heading):
-                if self.index == 0:
-                    self.transfers = [('table', 'carrier')]
-                elif self.index == 3:
-                    self.transfers = [('carrier', 'table')]
-                elif self.param('intermediate_transfers', True):
-                    self.transfers = [('carrier', 'table'), ('table', 'carrier')]
-                else:
-                    self.completed.append(self.room.code)
-                    self.send('/rooms/completed', String, ','.join(self.completed), True)
-                    self.transition('TURN_TO_ROUTE')
-                    return
-                self.begin_transfer()
+                self.payload = 'process'
+                self.send('/process/request', String, self.room.code, True)
+                self.transition('ALIGN_AFTER_ENTRY')
+        elif s == 'ALIGN_AFTER_ENTRY':
+            self.select(exit_leg)
+            if self.align(edge_heading(exit_leg, room_stop(room, 'entry'))):
+                self.transition('TRAVEL_TO_EXIT')
+        elif s == 'TRAVEL_TO_EXIT':
+            if self.follow(exit_leg, room_stop(room, 'exit'), self.param('room_speed', .15)):
+                self.transition('CONFIRM_EXIT_TAG')
+        elif s == 'CONFIRM_EXIT_TAG':
+            # A fresh, in-scope exit tag plus the completed service cell
+            # authorises Track 2 -> Track 1.
+            tag_ok = self.tags_authorized(room, 'exit')
+            process_ok = self.value('/process/ready') == room.code
+            if tag_ok and process_ok and self.stopped():
+                self.get_logger().info(f'[Decision] {room.tag("exit")}: collect wafer then TRACK_2 -> TRACK_1')
+                self.payload = 'exit'
+                self.payload_table = room.handoff('exit')
+                self.transition('ALIGN_EXIT')
+            elif self.now()-self.entered > self.param('apriltag_timeout', 12.):
+                if not tag_ok:
+                    self.fault('Expected AprilTag not confirmed before the Track 2 junction: ' +
+                               room.tag('exit'))
+                elif not process_ok:
+                    self.fault('Exit tag observed but ' + room.code +
+                               ' has not delivered the processed wafer to its exit handoff')
+        elif s == 'ALIGN_EXIT':
+            if self.align(DOOR_APPROACH_HEADING):
+                self.transition('OPEN_EXIT')
         elif s in TRANSFER:
             self.transfer_step()
-        elif s == 'TURN_TO_ROUTE':
-            if not self.stowed():
-                self.fault('Wand must be stowed before turning toward exit')
-            elif self.align(self.room.heading, tape=not self.fallback_active):
-                self.transition('EXIT_ROOM')
-        elif s == 'EXIT_ROOM':
-            if self.drive(room_stop(self.room, 'exit'), inside=True):
-                self.transition('OPEN_EXIT')
         elif s == 'OPEN_EXIT':
             if self.door('exit', True, dt):
-                self.transition('HOLD_EXIT')
-        elif s == 'HOLD_EXIT':
-            if (self.door('exit', True, dt) and
-                    self.now()-self.entered >= self.param('door_open_hold', .5)):
-                self.transition('CLOSE_EXIT')
+                self.begin_transfer([('exit', 'carrier')], 'CLOSE_EXIT')
         elif s == 'CLOSE_EXIT':
             if self.door('exit', False, dt):
-                self.get_logger().info(f'[FourRooms] {self.room.code}: exit verified, both doors closed')
-                if self.index == 3:
+                self.send('/process/consumed', String, self.room.code, True)
+                self.completed.append(self.room.code)
+                self.send('/rooms/completed', String, ','.join(self.completed), True)
+                self.get_logger().info(f'[Gloveboxes] {self.room.code}: processed wafer collected')
+                self.transition('ALIGN_AFTER_EXIT')
+        elif s == 'ALIGN_AFTER_EXIT':
+            self.select(exit_leg)
+            if self.align(edge_heading(exit_leg, room_stop(room, 'exit'))):
+                self.transition('TRAVEL_TO_RETURN_JUNCTION')
+        elif s == 'TRAVEL_TO_RETURN_JUNCTION':
+            if self.follow(exit_leg, exit_leg.length, self.param('room_speed', .15)):
+                self.transition('ALIGN_RETURN_JUNCTION')
+        elif s == 'ALIGN_RETURN_JUNCTION':
+            self.select(exit_rung(room))
+            if self.align(-math.pi/2):
+                self.consume_authorization()
+                self.transition('CROSS_RETURN_JUNCTION')
+        elif s == 'CROSS_RETURN_JUNCTION':
+            edge = exit_rung(room)
+            if self.follow(edge, edge.length, self.param('room_speed', .15), junction=True):
+                self.transition('ALIGN_MAIN_LANE')
+        elif s == 'ALIGN_MAIN_LANE':
+            if self.index == len(ROOMS)-1:
+                self.select(TAIL_EDGE)
+                if self.align(edge_heading(TAIL_EDGE, 0.)):
                     self.transition('RETURN_HOME')
-                else:
+            else:
+                # Select the next room's Track 1 leg, and advance the room
+                # index exactly once, on the tick the turn completes.
+                self.select(main_edge(ROOMS[self.index+1]))
+                if self.align(0.):
                     self.index += 1
                     self.transition('APPROACH_ENTRY')
         elif s == 'RETURN_HOME':
-            if self.drive(LENGTH):
+            self.select(TAIL_EDGE)
+            if self.follow(TAIL_EDGE, TAIL_EDGE.length, self.param('route_speed', .20)):
+                self.transition('TURNAROUND')
+        elif s == 'TURNAROUND':
+            # Measured 180 deg turn at the end of Track 1, then home on Track 1.
+            self.select(HOME_EDGE)
+            if self.align(math.pi) and self.stopped():
+                self.transition('HOME_RETURN')
+        elif s == 'HOME_RETURN':
+            if self.follow(HOME_EDGE, HOME_EDGE.length, self.param('route_speed', .20)):
                 self.transition('VERIFY_DELIVERY')
         elif s == 'VERIFY_DELIVERY':
             supported = (self.stopped() and self.stowed() and self.attachment('vacuum') == 'detached' and
                          self.completed == [r.code for r in ROOMS] and
                          placed(self.position('transport_robot'), (*START, 0.), .04, .02) and
-                         placed(self.position('wafer'), ROOMS[-1].table, .012, .005))
+                         self.payload == 'carrier' and
+                         placed(self.position('wafer'), self.target_position('carrier'), .012, .008))
             if self.stable(supported):
                 self.transition('COMPLETE')
-                self.get_logger().info('TRANSPORT COMPLETE — wafer in ROOM_4; robot outside all rooms')
+                self.get_logger().info('TRANSPORT COMPLETE — wafer processed through all 11 gloveboxes')
 
 
 def main(args=None):

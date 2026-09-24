@@ -1,6 +1,6 @@
 # Yahboom Raspbot V2 simulation model
 
-The four-room demonstration uses a locally generated reconstruction of the
+The eleven-glovebox demonstration uses a locally generated reconstruction of the
 Yahboom Raspbot V2 Standard Kit with Raspberry Pi 5. The stock robot envelope,
 wheelbase, weight, camera field of view, pan/tilt range, and motor speed come
 from Yahboom's product page and dimension drawing:
@@ -36,11 +36,22 @@ pose, and the generated tape geometry to publish `/ir/values`, `/ir/valid`, and
 topic contract. The ultrasonic modules, OLED, and RGB lamps are visual geometry
 only and do not publish sensor data.
 
-If probe readings stop or cannot provide a forward command, the four-room
+If probe readings stop or cannot provide a forward command, the glovebox
 controller can emulate line following from live model pose and the same tape
 geometry. This is the explicit simulation recovery requested for the demo,
 reported as `SIMULATED_IR` on `/transport/steering_mode`. It is not a physical IR
-measurement or a hardware navigation solution. Cameras do not gate the mission.
+measurement or a hardware navigation solution. The forward camera gates each
+branch and door stop through confirmed AprilTag observations.
+The forward pan/tilt camera runs at 640 × 480 and 60 Hz in this simulation so
+`apriltag_detector` can read the 22 AprilTag 36h11 entry/exit markers. Actual
+range and frame rate on the physical Raspberry Pi depend on lighting, exposure,
+tag size, lens calibration, and available compute; “any distance” detection is
+not physically possible.
+
+Each glovebox also contains a separate idealized X/Z rail robot. Those internal
+robots are facility equipment, not part of the stock Raspbot. They move the
+wafer from the entry handoff to the blue process stage and then to the exit
+handoff using their own detachable-joint attachment.
 
 The telescoping vacuum wand, carrier tray, detachable joints, and downward line
 camera are the wafer-demo payload. They are not stock Yahboom parts. The real

@@ -53,7 +53,7 @@ sudo apt-get install -y \
   ros-lyrical-desktop ros-lyrical-ros-gz ros-lyrical-cv-bridge \
   ros-lyrical-rqt-graph ros-lyrical-rqt-image-view \
   ros-dev-tools python3-pytest python3-opencv python3-numpy \
-  python3-yaml python3-qrcode python3-pil python3-setuptools
+  python3-yaml python3-pil python3-setuptools
 
 # ROS setup scripts are not guaranteed to be nounset-safe.
 set +u

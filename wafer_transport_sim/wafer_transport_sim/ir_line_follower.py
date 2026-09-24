@@ -2,8 +2,9 @@
 
 Gazebo has no stock colour-sensitive IR reflectance sensor. This node samples
 the black tape geometry at the four physical probe locations using the live
-model pose. Hardware can replace it with the Yahboom IR driver while retaining
-the same topics and steering contract.
+model pose, so it reflects every physical lane and transverse junction.
+Hardware can replace it with the Yahboom IR driver while retaining the same
+topics and steering contract.
 """
 import math
 
@@ -12,7 +13,7 @@ from std_msgs.msg import Bool, Float64MultiArray
 
 from .common import DemoNode, run
 from .core import clamp, yaw
-from .four_room_layout import project
+from .four_room_layout import tape_distance
 
 
 OFFSETS = (-.030, -.010, .010, .030)  # right to left in base_link metres
@@ -25,8 +26,7 @@ def probe_values(x, y, heading, forward=.10684, radius=.025):
     for lateral in OFFSETS:
         px = x + forward*c - lateral*s
         py = y + forward*s + lateral*c
-        _, distance = project(px, py)
-        values.append(clamp(1.-distance/radius, 0., 1.))
+        values.append(clamp(1.-tape_distance(px, py)/radius, 0., 1.))
     return tuple(values)
 
 

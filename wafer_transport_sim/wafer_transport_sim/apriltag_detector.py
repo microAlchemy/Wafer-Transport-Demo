@@ -9,15 +9,15 @@ from .common import DemoNode, run
 from .core import DetectionFilter
 
 
-TAG_CODES = {2*(room-1): f'ROOM_{room}_ENTRY' for room in range(1, 5)}
-TAG_CODES.update({2*(room-1)+1: f'ROOM_{room}_EXIT' for room in range(1, 5)})
+TAG_CODES = {2*(room-1): f'GLOVEBOX_{room:02d}_ENTRY' for room in range(1, 12)}
+TAG_CODES.update({2*(room-1)+1: f'GLOVEBOX_{room:02d}_EXIT' for room in range(1, 12)})
 
 
 def detected_codes(image):
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
     detector = cv2.aruco.ArucoDetector(dictionary, cv2.aruco.DetectorParameters())
     _, ids, _ = detector.detectMarkers(image)
-    return [] if ids is None else [TAG_CODES[i] for i in ids.flatten() if int(i) in TAG_CODES]
+    return [] if ids is None else [TAG_CODES[int(i)] for i in ids.flatten() if int(i) in TAG_CODES]
 
 
 class AprilTagDetector(DemoNode):

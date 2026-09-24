@@ -1,44 +1,30 @@
-# Four-room wafer transport simulation
+# Eleven-glovebox wafer transport simulation
 
-The default demonstration follows the supplied four-room layout: two Class 100
-rooms above a rounded rectangular route and two below. A dimensioned Yahboom
-Raspbot V2 follows
-continuous **black floor tape around all four rooms**. Each room has separate,
-visible guillotine entry and exit doors. The vacuum wand is mounted on the robot;
-there is no stationary gantry.
+The default Gazebo world implements the supplied aerial layout as a linear
+Class 100 facility with **11 gloveboxes**. Every glovebox is exactly
+1.2192 × 0.9144 × 1.2192 m (4 × 3 × 4 ft), adjacent boxes have a 0.3048 m
+(1 ft) separation, and each front service corridor is 0.3048 m wide.
 
-The automatic mission runs once, clockwise:
+A Yahboom Raspbot V2 follows a two-track black tape network. Track 1 is the main
+lane farthest from the doors; Track 2 is the service lane beside them. At each
+glovebox the route FSM stops at a pre-junction decision point, confirms that
+glovebox's forward-facing AprilTag, turns onto Track 2 and stops outside the
+entry guillotine door. Its onboard wand places the wafer on the entry handoff.
+A separate orange rail robot inside that glovebox collects the wafer, lowers it
+onto the blue process stage, holds it there for the configured processing
+period, and carries it to the exit handoff. The Raspbot confirms the exit tag
+plus the completed service cell, collects the wafer through the second door,
+returns to Track 1 through the following rung, and repeats. After Glovebox 11 it
+turns around at the end of Track 1 and returns home on Track 1 with the
+processed wafer in its carrier.
 
-1. **Room 1, top left:** circle to the outside service opening, pick the wafer up from its
-   process table, and place it in the onboard carrier.
-2. **Room 2, top right:** deposit the wafer on the process table, verify support,
-   then pick it back up and load the carrier.
-3. **Room 3, bottom right:** repeat the table-to-carrier transfer.
-4. **Room 4, bottom left:** leave the wafer on the destination table.
-5. Clear room 4, close its door, and follow the separate left return lane to the starting
-   position **outside all rooms**. Report `TRANSPORT COMPLETE` only after checking
-   the final wafer placement and stopped robot.
+No model is teleported. Raspbot and process-cell transfers use Gazebo detachable
+joints, measured joint feedback, actual wafer pose, and supporting shelves.
 
-The intermediate rooms demonstrate handoffs, not material processing. All wafer
-motion uses the robot's physical wand joints and acknowledged vacuum attachment;
-there are no object pose-setting calls. The carrier stays on the robot throughout.
+## Run in the Ubuntu 26.04 UTM VM
 
-**Validation:** local Python, XML/resource, QR image, camera-projection, controller,
-and kinematic tests run on macOS. The new four-room world has **not been run in
-Gazebo here**: this Mac has no ROS/Gazebo installation. In particular, door and
-payload dynamics, contact behavior when picking back up from the carrier, and
-rendered QR visibility still need the Ubuntu integration checks below. A passing
-idealized controller test is not a successful physical simulation.
-
-## Run on the existing UTM Ubuntu VM
-
-Requires Ubuntu 26.04 ARM64 or amd64, ROS 2 Lyrical and Gazebo Jetty. Keep the
-existing installation. On a new Ubuntu installation, run
-`bash wafer_transport_sim/scripts/install_ubuntu.sh` first; dependencies and
-manual installation commands are in [the installation guide](docs/single_room.md#requirements-and-installation).
-
-Stop any running demonstration with **Ctrl-C**. Share the Mac project's `dist`
-folder in UTM, then run this **whole block in Ubuntu**:
+The VM needs ROS 2 Lyrical and Gazebo Jetty. Stop any older launch with
+**Ctrl-C**, share this project's `dist` folder in UTM, and run this whole block:
 
 ```bash
 (
@@ -47,240 +33,285 @@ sudo mkdir -p /mnt/utm
 if ! mountpoint -q /mnt/utm; then
   sudo mount -t 9p -o trans=virtio,version=9p2000.L,ro share /mnt/utm
 fi
-test -f /mnt/utm/wafer-transport-ubuntu26.04.zip || {
-  echo "STOP: Share the Mac project's dist folder in UTM."
-  exit 1
-}
+test -f /mnt/utm/wafer-transport-ubuntu26.04.zip
 unzip -o /mnt/utm/wafer-transport-ubuntu26.04.zip -d ~/wafer-mobile-update
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
-grep -qx 'raspbot-v2-home-unblock-20260922' wafer_transport_sim/config/release.txt || {
-  echo 'STOP: The shared ZIP has not refreshed to the Raspbot V2 release.'
+grep -qx 'eleven-glovebox-turn-recovery-20260924' wafer_transport_sim/config/release.txt || {
+  echo 'STOP: UTM is seeing an older ZIP.'
   exit 1
 }
 source /opt/ros/lyrical/setup.bash
-colcon --log-base log-home-unblock build --base-paths ./wafer_transport_sim \
-  --build-base build-home-unblock --install-base install-home-unblock \
-  --symlink-install --packages-select wafer_transport_sim
-source install-home-unblock/local_setup.bash
-ros2 launch wafer_transport_sim demo.launch.py layout:=four_rooms gui:=true
+colcon --log-base log-eleven-boxes build \
+  --base-paths ./wafer_transport_sim \
+  --build-base build-eleven-boxes \
+  --install-base install-eleven-boxes \
+  --symlink-install \
+  --packages-select wafer_transport_sim
+source install-eleven-boxes/local_setup.bash
+ros2 launch wafer_transport_sim demo.launch.py gui:=true
 )
 ```
 
-For later launches, from the updated project directory:
+For later launches:
 
 ```bash
+cd ~/wafer-mobile-update/Wafer-Transport-Demo
 source /opt/ros/lyrical/setup.bash
-source install-home-unblock/local_setup.bash
-ros2 launch wafer_transport_sim demo.launch.py
+source install-eleven-boxes/local_setup.bash
+ros2 launch wafer_transport_sim demo.launch.py gui:=true
 ```
 
-Options:
+## Aerial layout
 
-```bash
-ros2 launch wafer_transport_sim demo.launch.py gui:=false
-ros2 launch wafer_transport_sim demo.launch.py config:=/absolute/path/four_rooms.yaml
-# The previous single-room/station demonstration remains available explicitly:
-ros2 launch wafer_transport_sim demo.launch.py layout:=single_room destination_station:=STATION_C
-```
+The 18 mm tape is a network, not a single fixed trajectory:
 
-The GUI is enabled by default; `gui:=true` explicitly requests the window. The
-tape route runs around all four rooms and stays within the supporting floor.
+- **Track 1** is one continuous straight main lane below all 11 boxes.
+- **Track 2** is one continuous straight service lane beside the doors, exactly
+  one 1 ft lane pitch (0.3048 m) beyond Track 1.
+- 22 straight transverse rungs join the two lanes, one either side of every
+  glovebox at `room.x ± 0.45 m`. Each rung is clear of the 1 ft door opening and
+  of the box front plane, so a turning robot never sweeps a door leaf or a box
+  corner.
+- Entry and exit stops sit under the two guillotine doors on Track 2.
 
-The Raspbot's four front IR probes are the primary line sensors. The
-`ir_line_follower` samples the tape at the physical probe locations and publishes
-four normalized readings on `/ir/values`, tape validity on `/ir/valid`, and its
-steering candidate on `/ir/cmd_vel`. The four-room mission launches no camera
-line follower or QR decoder and does not wait for images or decoded signs.
-If IR readings are absent, stale, off-tape, or produce a zero/nonfinite command,
-the controller immediately emulates line following from live model pose and tape
-geometry, at startup or during travel. `/transport/steering_mode` reports
-`SIMULATED_IR` during recovery and `IR` when valid probe commands return.
-This explicitly simulated mode implements the requested “pretend” sensor;
-physics feedback still controls stopping, door motion, and wafer attachments.
-Set `allow_sensor_fallback: false` to require valid IR readings instead.
+There is no raised per-door detour, no red tape, and no third return lane: the
+route home is Track 1 itself. The controller selects one finite edge at a time
+and projects the robot onto that edge only, so the parallel lane can never
+capture it.
 
-Headless operation still needs graphics support for the cameras. If the shared
-ZIP disappears after reboot, remount it using the block above. Build from the
-project directory with `--base-paths`, not from `~`, where old copies cause duplicate
-package errors. Existing home-directory ZIPs may be stale.
+The Raspbot chassis stays outside every glovebox. Only its telescoping wand
+crosses an open door. Each box contains its own rail robot, blue process stage,
+entry support, and exit support. The transparent walls and open roof keep the
+complete handoff visible from the Gazebo aerial camera.
 
-## Layout and motion
+## Nodes in the default mission
 
-| Room | Position in image | Tape stop (world X, Y), m | Transfer |
-|---|---|---|---|
-| ROOM_1 | Top left | −1.000, +1.410 | Table → carrier |
-| ROOM_2 | Top right | +1.000, +1.410 | Carrier → table → carrier |
-| ROOM_3 | Bottom right | +1.000, −1.410 | Carrier → table → carrier |
-| ROOM_4 | Bottom left | −1.000, −1.410 | Carrier → table |
+`demo.launch.py` starts these application nodes:
 
-The floor is 5.0 × 4.0 m. Every room is exactly 1.2192 × 0.9144 × 1.2192 m
-(4 × 3 × 4 ft), with transparent walls and an open roof for viewing. Rooms are
-separated by at least 0.3048 m, and the shaded travel lane is exactly 0.3048 m
-(1 ft) wide.
-The 18 mm black tape runs down the lane centre and restores the earlier path:
-it detours above each upper room, below each lower room, and connects them along
-the outer sides. Rounded 0.1524 m corners keep the tape inside the one-foot lane.
-The robot starts at (−1.962, +0.800), facing right. Its chassis never enters a
-room footprint; only the telescoping wand reaches through the outside-facing
-one-foot service opening.
+| Node | Responsibility |
+|---|---|
+| `transport_controller` | Sole `/cmd_vel` owner; runs the two-track route, tag, junction, door, and Raspbot handoff state machine |
+| `ir_line_follower` | Produces four IR probe readings and a steering candidate from the live robot pose and tape geometry |
+| `apriltag_detector` | Decodes AprilTag 36h11 IDs from actual forward-camera frames and requires three consistent frames |
+| `process_cell_controller` | Controls all 11 internal rail robots and verifies entry, process, and exit wafer placement |
+| `parameter_bridge` | Bridges commands and feedback between ROS 2 and Gazebo |
 
-The four-room model reconstructs the Standard Kit Yahboom Raspbot V2 at its
-published 208.74 × 165.83 × 127.05 mm stock envelope, with four mecanum wheels
-and an actuated pan/tilt camera. The wafer wand, carrier, and downward line camera
-are custom payload parts. Dimensions, source links, estimates, and hardware
-limitations are documented in [docs/raspbot_v2.md](docs/raspbot_v2.md).
+Gazebo provides MecanumDrive, joint position control, joint feedback, pose
+publishing, cameras, and detachable-joint systems.
 
-The robot travels around each room and stops beside its exterior service opening.
-It turns 90 degrees toward the process table, extends its onboard wand as needed, performs the
-transfer, retracts, then turns back toward the route. At each entry and exit
-checkpoint it stops clear of the side-mounted door, opens that door fully,
-holds it open for 0.5 simulation seconds, and closes it fully before continuing
-along the exterior tape. The wheels remain stopped throughout each cycle.
-All eight doors have separate commands and measured joints. The hold timer starts
-only after opening is acknowledged; a timer never substitutes for door feedback.
-
-The configured speeds are 0.20 m/s around the loop and 0.15 m/s through rooms.
-The controller maintains at least 0.07 m/s on normal tape segments and uses the
-Raspbot drive's acceleration limit for a short braking approach. It stops only
-at door interlocks, wafer transfer checkpoints, and the final home position.
-Door targets ramp at 0.18 m/s over a 0.52 m stroke. VM rendering can make wall-clock time considerably
-longer than simulation time. The four-probe IR array controls forward steering;
-model pose sets route progress and stop/clearance checks, while odometry verifies the robot
-has stopped. Four-room docking does **not** reuse the old straight-corridor
-odometry coordinates.
-
-## Controls, states, and diagnostics
-
-`demo.launch.py` selects the matching world, YAML, and explicit-direction bridges.
-In four-room mode it launches `four_room_controller` as the node
-`/transport_controller`, plus `ir_line_follower`. The controller
-combines room sequencing, wand control, and command arbitration so there is
-exactly one `/cmd_vel` publisher. The legacy handler, manager, and docking nodes
-are only started in `layout:=single_room`.
-
-Models are loaded once through local SDF includes: one robot, carrier, and wafer,
-plus eight independently controlled doors. The room walls and tape are static
-world geometry. Assets install into the package share directory; source checkout
-paths are not required at launch.
-
-A typical room sequence is:
+## Mission sequence at every glovebox
 
 ```text
-APPROACH_ENTRY → OPEN_ENTRY → HOLD_ENTRY → CLOSE_ENTRY → ENTER_ROOM
-→ TURN_TO_TABLE
-→ PICK_POSITION → PICK_LOWER → ATTACH → LIFT
-→ PLACE_POSITION → PLACE_LOWER → RELEASE → RETRACT → VERIFY_PLACE
-→ TURN_TO_ROUTE → EXIT_ROOM → OPEN_EXIT → HOLD_EXIT → CLOSE_EXIT
+(Track 1) APPROACH_ENTRY          transit to the pre-junction decision stop
+→ CONFIRM_ENTRY_TAG               fresh in-scope entry tag
+→ ADVANCE_ENTRY_JUNCTION          creep to the junction mouth
+→ ALIGN_ENTRY_JUNCTION            turn onto the selected rung
+→ CROSS_ENTRY_JUNCTION            explicit selected-edge crossing
+→ ALIGN_SERVICE_LANE
+(Track 2) TRAVEL_TO_ENTRY
+→ ALIGN_ENTRY
+→ OPEN_ENTRY
+→ carrier-to-entry handoff
+→ CLOSE_ENTRY
+→ internal robot collects wafer
+→ blue-stage processing
+→ internal robot places wafer at exit
+→ TRAVEL_TO_EXIT
+→ CONFIRM_EXIT_TAG                fresh exit tag plus the completed service cell
+→ ALIGN_EXIT
+→ OPEN_EXIT
+→ exit-to-carrier handoff
+→ CLOSE_EXIT
+→ TRAVEL_TO_RETURN_JUNCTION
+→ ALIGN_RETURN_JUNCTION
+→ CROSS_RETURN_JUNCTION           back to Track 1
+→ ALIGN_MAIN_LANE
 ```
 
-Rooms 2 and 3 run the transfer sequence twice. Room 4 is followed by
-`RETURN_HOME → VERIFY_DELIVERY → COMPLETE`. Console output identifies the active
-room and each table/carrier handoff. `VERIFY_PLACE` needs acknowledged detachment,
-a stowed wand, and fresh wafer pose on the receiving support for at least one
-simulation second. Waiting alone never substitutes for successful motion.
+The Raspbot remains stopped while a door moves or its wand is extended. It
+continues only after joint feedback confirms that the door is closed and the
+wand is stowed. The next glovebox cannot start until the preceding exit handoff
+has been verified. After Glovebox 11 the FSM runs `RETURN_HOME`, `TURNAROUND`
+(a measured 180° turn at the end of Track 1) and `HOME_RETURN`, and then
+`VERIFY_DELIVERY`.
 
-Each room retains its `ROOM_1` … `ROOM_4` QR texture as a visible sign. The
-four-room mission uses ordered route checkpoints and IR steering; QR recognition
-is no longer a mission interlock. If required physics feedback goes stale,
-the robot leaves its tape corridor, an attachment fails, a door opens during
-travel, or a state times out, the controller enters
-`FAULT`, sends zero velocity, and holds the current joint positions. Restart the
-launch after fixing the problem; in-place world reset is not supported.
+`transport_controller` also publishes two transient-local diagnostics on every
+tick: `/transport/track` (`TRACK_1` or `TRACK_2`) and `/transport/route_segment`
+(the selected edge, for example `main_04`, `rung_in_04`, `service_04`,
+`rung_out_04`, `main_tail`, `main_home`).
 
-| Topic | Purpose |
+## Internal process cells
+
+Each glovebox contains one generated X/Z rail shuttle. Its vacuum cup parks a
+derived lift stroke above every support surface, and the generated model and the
+controller read the same heights from `four_room_layout.py`, so a trip is:
+lower onto the supported wafer, attach and acknowledge, lift clear of the shelf,
+translate to the blue stage, lower and release, verify the supported dwell for
+`process_hold` seconds, pick the wafer back up, place it on the exit handoff and
+retract. Gazebo attaches a detachable joint on its first update, so all eleven
+cells are parked on their own supports at startup: the transport may not start
+its mission until `/process/cells_detached` reports true.
+
+An active transfer faults on stale required feedback, on a motion or attachment
+timeout, when the mobile vacuum or another cell still holds the wafer, and when
+the wafer is no longer on the support that should hold it. A fault stops the
+commanded joint motion, keeps the cell's attachment state and publishes
+`/system/fault`, which stops the transport.
+
+## AprilTags
+
+Each of the 11 gloveboxes has an entry and an exit AprilTag 36h11 PNG in
+`wafer_transport_sim/textures/room_N_{entry,exit}_apriltag.png`. IDs 0–21
+map to `GLOVEBOX_01_ENTRY`, `GLOVEBOX_01_EXIT`, ..., `GLOVEBOX_11_EXIT`.
+
+`wafer_transport_sim/scripts/generate_four_rooms.py` creates the 22 marker
+images with OpenCV and places each image on a sign in the generated
+`worlds/four_rooms.sdf`. `marker_pose()` in `four_room_layout.py` keeps signs
+ahead of their track junctions and facing the Raspbot's forward camera.
+`generate_four_rooms.py` can regenerate both the images and the world.
+
+Gazebo's forward camera publishes `/camera/image_raw` through the bridge at
+640 × 480 and 60 Hz. `apriltag_detector.py` uses OpenCV's 36h11 detector,
+requires three consistent frames, and publishes the decoded room/side name on
+`/detected_apriltag`. It also publishes `/apriltag/healthy`.
+
+`four_room_controller.py` accepts only the expected tag for its current room
+and entry/exit decision. It requires a fresh observation after the decision
+window opens; wrong, stale and previously seen tags cannot authorize the
+junction. The FSM then selects the Track 1 → Track 2 entry rung or the
+Track 2 → Track 1 exit rung. IR sensors follow the selected black tape, while
+odometry and model pose determine the actual stop. A tag alone never opens a
+door or completes docking. The robot returns home on Track 1 after box 11.
+
+These images and code serve the active mission; the retired QR station demo
+and its textures are no longer installed.
+
+## IR following
+
+The four front IR probes are the primary steering input:
+
+| Topic | Meaning |
 |---|---|
-| `/transport/state`, `/system/state` | Mission state, reliable/transient-local |
-| `/rooms/active`, `/rooms/completed` | Active room and ordered verified handoffs |
-| `/system/fault` | Fault reason, reliable/transient-local |
-| `/wafer_delivered` | True only after final placement and return outside |
-| `/carrier_ready` | Wafer carried onboard; false after final unloading |
-| `/ir/values`, `/ir/valid` | Four reflectance readings and combined tape detection |
-| `/ir/cmd_vel` | Primary IR steering candidate; never drives wheels directly |
-| `/transport/steering_mode` | `IR` or explicitly simulated `SIMULATED_IR` recovery |
-| `/cmd_vel` | Sole authoritative wheel command |
-| `/docking_distance` | Remaining tape distance to the current route stop |
-| `/doors/room_N/entry/joint_states` | Entry door feedback (also `exit`) |
-| `/actuators/room_N_entry_z` | Door position target (also `exit`) |
-| `/attachments/vacuum/state`, `/attachments/carrier/state` | Gazebo attachment acknowledgement |
-| `/poses/wafer`, `/poses/carrier`, `/poses/transport_robot` | Actual model poses |
+| `/ir/values` | Four normalized reflectance values |
+| `/ir/valid` | At least one probe sees tape |
+| `/ir/cmd_vel` | Candidate forward/turn command |
+| `/transport/steering_mode` | `IR` or `SIMULATED_IR` |
 
-`/carrier_delivered` belongs to the legacy carrier-deposition mission; the new
-mission delivers the **wafer**, so observe `/wafer_delivered`.
+If the simulated IR process is absent, stale, off-tape, or produces an unusable
+command, the controller follows the same generated tape from live Gazebo pose.
+This explicit `SIMULATED_IR` mode is the requested “pretend sensor” recovery.
+On the straight lanes the IR candidate is the primary steering input; the
+bounded junction states steer onto the edge the route FSM selected. The pose
+fallback follows that same selected edge, so it can never choose a lane, and it
+does not bypass door, attachment, odometry, pose, or AprilTag checks.
 
-Useful commands in a second sourced terminal:
+Force that recovery mode with:
 
 ```bash
+ros2 launch wafer_transport_sim demo.launch.py ir_enabled:=false
+```
+
+## Useful topics
+
+```bash
+ros2 topic echo /transport/decision
 ros2 topic echo /transport/state
-ros2 topic echo /system/fault
-ros2 topic echo /rooms/completed
-ros2 topic echo /wafer_delivered
 ros2 topic echo /transport/steering_mode
-ros2 topic echo /ir/values
-ros2 topic echo /ir/valid
-ros2 topic echo /doors/room_1/entry/joint_states
-ros2 run rqt_image_view rqt_image_view /down_camera/image_raw
+ros2 topic echo /transport/track
+ros2 topic echo /transport/route_segment
+ros2 topic echo /detected_apriltag
+ros2 topic echo /process/state
+ros2 topic echo /process/ready
+ros2 topic echo /process/cells_detached
+ros2 topic echo /rooms/active
+ros2 topic echo /rooms/completed
+ros2 topic echo /system/fault
+ros2 topic echo /wafer_delivered
 ros2 topic info /cmd_vel --verbose
 ```
 
-Edit `config/four_rooms.yaml` before launch to change speeds, timeouts, or
-`intermediate_transfers` (false passes through rooms 2 and 3 without unloading).
-Room order/geometry are structural constants in `four_room_layout.py`, shared by
-the generator and controller. `destination_station` is a legacy-only option and
-is rejected in four-room mode to avoid silently running an unintended route.
+Door topics follow this pattern:
 
-## Verification and regeneration
+```text
+/actuators/room_N_entry_z
+/doors/room_N/entry/joint_states
+/actuators/room_N_exit_z
+/doors/room_N/exit/joint_states
+```
 
-Local checks from the project root:
+Internal robots use:
+
+```text
+/actuators/room_N_process_x
+/actuators/room_N_process_z
+/process/room_N/joint_states
+/attachments/process_N/{attach,detach,state}
+```
+
+## Configuration and verification
+
+Mission parameters are in `wafer_transport_sim/config/four_rooms.yaml`. Geometry
+and route constants are shared through `four_room_layout.py`; the historical
+filename is retained so existing launch commands continue to work.
+
+The two-track network, the 22 transverse rungs, the selected-edge route plan and
+the marker positions all come from the same module, and the world generator
+draws the tape and the signs from those values. `four_room_check` records the
+`/transport/track` and `/transport/route_segment` sequence on the VM and fails
+the run if a Track 2 excursion is missing, out of order, or if the return home
+ever leaves Track 1.
+
+Portable checks:
 
 ```bash
 PYTHONPATH=wafer_transport_sim python3 -m pytest wafer_transport_sim/test -q
-python3 wafer_transport_sim/scripts/generate_assets.py
 python3 wafer_transport_sim/scripts/generate_four_rooms.py
+python3 wafer_transport_sim/scripts/preview_two_track.py
 ```
 
-On Ubuntu, after building and sourcing, stop any other simulation and run:
+`generate_four_rooms.py` rebuilds the world, doors, process cells, textures and
+bridge mapping from the shared constants, and `preview_two_track.py` draws the
+top-view `docs/agent-work/two-track-fsm/two-track-overhead.png` from the world it
+just wrote. The Ubuntu archive is packaged from a staging copy so no local
+`dist`, cache or agent-work directory leaks into it:
 
 ```bash
-# Runs Gazebo, observes door cycles and supported placements, and saves logs/JSON.
+stage=$(mktemp -d)
+rsync -a --prune-empty-dirs --exclude '.git/' --exclude '.DS_Store' \
+  --exclude '__pycache__/' --exclude '.pytest_cache/' --exclude '*.egg-info/' --exclude 'dist/' \
+  --exclude 'docs/agent-work/' --exclude 'plot*.py' --exclude 'path*.png' \
+  README.md LICENSE .gitignore docs wafer_transport_sim \
+  "$stage/Wafer-Transport-Demo/"
+(cd "$stage" && zip -qr -X wafer-transport-ubuntu26.04.zip Wafer-Transport-Demo)
+mv "$stage/wafer-transport-ubuntu26.04.zip" dist/wafer-transport-ubuntu26.04.zip
+```
+
+Ubuntu integration checks:
+
+```bash
 ros2 run wafer_transport_sim four_room_check --gui
-# Headless nominal mission:
-ros2 run wafer_transport_sim four_room_check
-# Recovery scenarios: each must complete without camera/IR availability.
-ros2 run wafer_transport_sim four_room_check --scenario lost_line
 ros2 run wafer_transport_sim four_room_check --scenario missing_ir
-ros2 run wafer_transport_sim four_room_check --scenario missing_images
-ros2 run wafer_transport_sim four_room_check --scenario missing_room_qr
-# Actuator faults: must stop without reporting delivery.
+ros2 run wafer_transport_sim four_room_check --scenario missing_apriltag
 ros2 run wafer_transport_sim four_room_check --scenario failed_pickup
+ros2 run wafer_transport_sim four_room_check --scenario failed_process
 ros2 run wafer_transport_sim four_room_check --scenario stuck_door
 ```
 
-Reports go to `log/four_rooms/`. The runner checks the ordered room handoffs,
-all eight stationary door cycles, wafer support at every deposit, closed doors, final wafer
-pose, and robot return outside. It observes for two more simulation seconds after
-completion. Fault tests require the injection stage to have been reached, a
-reported fault, zero velocity, and no false delivery flag. The default wall-clock
-limit is 1800 seconds and can be changed with `--timeout` for a slow VM.
+The current macOS workspace has no ROS or Gazebo installation. Python state
+machines, generated AprilTags, package metadata, and SDF/XML are checked locally;
+contact dynamics, rendered tag visibility, 60 Hz camera performance, and the
+complete physical mission must still be verified in the Ubuntu VM. The
+`failed_process` run drops the `/attachments/process_1/attach` bridge so the
+first internal cell never acknowledges its pickup, which must fault the cell and
+stop the transport without a delivery.
 
-`bash wafer_transport_sim/scripts/verify_ubuntu.sh` validates SDF with Gazebo's
-parser, then runs both four-room and legacy integration suites. These runtime
-checks are provided but **have not been executed on this Mac**. The idealized
-vacuum, 100 mm demonstration wafer, unmodelled contamination/processing, and
-pose-based route localization remain simulation simplifications.
+Raspbot dimensions, model assumptions, and hardware limitations are documented
+in [docs/raspbot_v2.md](docs/raspbot_v2.md). The package launches only the eleven-glovebox AprilTag mission.
 
-## Project files
+Junction arrival braking targets the stop position rather than the boundary of its tolerance window, avoiding a low-speed deadband stall before the tag decision. `/transport/decision` reports FSM state, expected tag, authorization, measured velocity and fault. Repeated tag logs are limited to one per ID per five simulation seconds.
 
-```text
-wafer_transport_sim/
-  launch/demo.launch.py
-  config/{four_rooms.yaml,four_rooms_bridge.yaml,simulation.yaml,bridge.yaml}
-  worlds/{four_rooms.sdf,wafer_transport.sdf}
-  models/{raspbot_v2,transport_robot,carrier,wafer,room_1_entry_door,...,room_4_exit_door,...}/
-  textures/{room_1_qr.png,...,room_4_qr.png,...}
-  scripts/{generate_assets.py,generate_four_rooms.py,install_ubuntu.sh,verify_ubuntu.sh}
-  wafer_transport_sim/{four_room_layout.py,four_room_controller.py,four_room_check.py,...}
-  test/{test_four_rooms.py,test_controllers.py,test_assets.py,test_vision.py,...}
-```
+Door clearance repair: handoff centres are 100 mm inside the front wall and the blue stage is 160 mm deep, keeping stationary supports clear of the closed panels. The closed-door check accepts the model’s downward lower-stop travel (-6 to +2 mm), retains a strict 2 mm upward-opening limit, and rejects stale or invalid feedback. Door faults include position and feedback age.
 
-The previous single-room architecture and station workflow are documented in
-[docs/single_room.md](docs/single_room.md).
+## Turn reliability
+
+At each transverse tape connection the route FSM aligns in place, crosses the selected rung and aligns with the next lane. Steering aims beyond the end of a selected tape edge along its tangent so the target stays in front of the robot near the junction. Alignment uses a 0.12 rad/s minimum turn command outside a 0.03 rad junction heading tolerance (0.012 rad when facing a door); it then commands zero and waits for measured low odometry speed. These values are configured in `config/four_rooms.yaml`. `/transport/decision` includes `heading_error` while aligning for VM diagnosis.

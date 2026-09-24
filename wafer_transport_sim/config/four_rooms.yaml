@@ -2,17 +2,18 @@
   ros__parameters:
     use_sim_time: true
     sensor_timeout: 1.0
-    state_timeout: 60.0
+    state_timeout: 180.0
 transport_controller:
   ros__parameters:
     route_speed: 0.20
-    room_speed: 0.15
     turn_speed: 0.55
+    minimum_turn_speed: 0.12
+    turn_tolerance: 0.03
+    door_turn_tolerance: 0.012
     door_speed: 0.18
-    door_open_hold: 0.5
-    mission_timeout: 600.0
+    mission_timeout: 1800.0
+    apriltag_timeout: 12.0
     startup_timeout_wall: 90.0
-    intermediate_transfers: true
     placement_hold: 1.0
     minimum_cruise_speed: 0.07
     curve_speed: 0.09
@@ -33,15 +34,5 @@ process_cell_controller:
   ros__parameters:
     process_hold: 2.0
     placement_hold: 0.5
-line_follower:
-  ros__parameters:
-    linear_speed: 0.20
-    kp: 0.007
-    max_angular_speed: 1.4
-    threshold: 55
-    camera_crop_ratio: 0.35
-qr_detector:
-  ros__parameters:
-    valid_codes: [ROOM_1, ROOM_2, ROOM_3, ROOM_4]
-    confirmation_frames: 3
-    minimum_qr_side_pixels: 55.0
+    motion_timeout: 30.0
+    attachment_timeout: 5.0

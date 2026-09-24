@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the four-room loop using the proven mobile robot and door assets."""
+"""Generate the eleven-glovebox aerial layout and tagged tape route."""
 import math
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 import cv2
-import qrcode
 import yaml
 from PIL import Image, ImageDraw
 from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link, joint,
@@ -13,9 +12,16 @@ from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link, 
 from generate_raspbot import generate as generate_raspbot
 
 sys.path.insert(0, str(ROOT))
-from wafer_transport_sim.four_room_layout import (ROOMS, PATH, START, ROOM_LENGTH,
+from wafer_transport_sim.four_room_layout import (ROOMS, TAPE_SEGMENTS, START, ROOM_LENGTH,
                                                   ROOM_DEPTH, ROOM_HEIGHT,
-                                                  CORRIDOR_WIDTH)
+                                                  CORRIDOR_WIDTH, MARKER_SIZE, marker_pose,
+                                                  SUPPORT_TOP, PROCESS_STAGE_DEPTH,
+                                                  PROCESS_TRAVEL, PROCESS_RAIL_Z,
+                                                  PROCESS_RAIL_SIZE, PROCESS_CARRIAGE_SIZE,
+                                                  PROCESS_ARM_LENGTH, PROCESS_ARM_CENTER,
+                                                  PROCESS_ARM_WIDTH, PROCESS_CUP_RADIUS,
+                                                  PROCESS_CUP_LENGTH, PROCESS_CUP_OFFSET,
+                                                  PROCESS_GRIPPER_Z, PROCESS_CONTACT_Z)
 
 
 def generate():
@@ -40,8 +46,9 @@ def generate():
     floor = el(world, 'model', name='loop_floor')
     el(floor, 'static', 'true')
     body = link(floor, 'structure')
-    solid(body, 'floor', (5.0, 4.0, .03), (0, 0, -.015), color=WHITE)
-    for i, (a, b) in enumerate(zip(PATH, PATH[1:])):
+    floor_length = ROOM_LENGTH*11+CORRIDOR_WIDTH*12+.8
+    solid(body, 'floor', (floor_length, 2.8, .03), (0, .05, -.015), color=WHITE)
+    for i, (a, b) in enumerate(TAPE_SEGMENTS):
         length = math.dist(a, b)
         if length < 1e-8:
             continue
@@ -73,30 +80,36 @@ def generate():
         """A rail shuttle that carries the wafer through one process cell."""
         name = f'room_{room.number}_process_robot'
         root, model = new_model(name)
-        base = link(model, 'base', mass=8., size=(.95, .06, .06))
-        solid(base, 'rail', (.95, .055, .055), (0, 0, .37), color=SILVER)
+        base = link(model, 'base', mass=8.,
+                    size=(.95, PROCESS_RAIL_SIZE, PROCESS_RAIL_SIZE))
+        solid(base, 'rail', (.95, PROCESS_RAIL_SIZE, PROCESS_RAIL_SIZE),
+              (0, 0, PROCESS_RAIL_Z), color=SILVER)
         anchor = el(model, 'joint', name='world_fixed', type='fixed')
         el(anchor, 'parent', 'world')
         el(anchor, 'child', 'base')
-        direction = room.direction
-        entry = -direction * (ROOM_LENGTH/2-.105)
-        carriage = link(model, 'carriage', (entry, 0, .37), mass=.7, size=(.12, .12, .12))
-        solid(carriage, 'carriage', (.12, .12, .12), color='.85 .25 .08 1')
+        direction = 1
+        entry = -PROCESS_TRAVEL/2
+        carriage = link(model, 'carriage', (entry, 0, PROCESS_RAIL_Z), mass=.7,
+                        size=(PROCESS_CARRIAGE_SIZE,)*3)
+        solid(carriage, 'carriage', (PROCESS_CARRIAGE_SIZE,)*3, color='.85 .25 .08 1')
         x_name = room.process_joint('x')
         joint(model, x_name, 'base', 'carriage', axis=f'{direction} 0 0',
-              limits=(0., ROOM_LENGTH-.21), controller={'cmd_max': .20})
-        gripper = link(model, 'gripper', (entry, 0, .28), mass=.25, size=(.08, .08, .08))
-        solid(gripper, 'vertical_arm', (.045, .045, .18), (0, 0, .05), color='.12 .18 .24 1')
-        solid(gripper, 'vacuum_cup', (.035, .012), (0, 0, -.095), color='.05 .05 .05 1',
-              shape='cylinder')
+              limits=(0., PROCESS_TRAVEL), controller={'cmd_max': .20})
+        gripper = link(model, 'gripper', (entry, 0, PROCESS_GRIPPER_Z), mass=.25,
+                       size=(.08, .08, .08))
+        solid(gripper, 'vertical_arm',
+              (PROCESS_ARM_WIDTH, PROCESS_ARM_WIDTH, PROCESS_ARM_LENGTH),
+              (0, 0, PROCESS_ARM_CENTER), color='.12 .18 .24 1')
+        solid(gripper, 'vacuum_cup', (PROCESS_CUP_RADIUS, PROCESS_CUP_LENGTH),
+              (0, 0, -PROCESS_CUP_OFFSET), color='.05 .05 .05 1', shape='cylinder')
         z_name = room.process_joint('z')
-        joint(model, z_name, 'carriage', 'gripper', axis='0 0 1', limits=(-.12, 0.),
-              controller={'cmd_max': .10})
+        joint(model, z_name, 'carriage', 'gripper', axis='0 0 1',
+              limits=(PROCESS_CONTACT_Z, 0.), controller={'cmd_max': .10})
         attachment(model, room.process_attachment(), 'gripper', 'wafer')
         state = plugin(model, 'joint-state-publisher', 'JointStatePublisher')
         el(state, 'topic', f'/process/room_{room.number}/joint_states')
         save_model(name, root)
-        include(name, (room.x, room.y, 0.))
+        include(name, (room.x, room.handoff('entry')[1], 0.))
         for topic, ros_type, gz_type, direction_name in [
                 ('/actuators/'+x_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
                 ('/actuators/'+z_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
@@ -108,7 +121,7 @@ def generate():
                                  ros_type_name=ros_type, gz_type_name=gz_type,
                                  direction=direction_name))
 
-    mappings = [m for m in yaml.safe_load((ROOT/'config/bridge.yaml').read_text())
+    mappings = [m for m in yaml.safe_load((ROOT/'config/base_bridge.yaml').read_text())
                 if m['ros_topic_name'] not in ('/door/joint_states', '/actuators/door_z')]
     for room in ROOMS:
         model = el(world, 'model', name=f'room_{room.number}')
@@ -117,26 +130,22 @@ def generate():
         ymin, ymax = room.y-ROOM_DEPTH/2, room.y+ROOM_DEPTH/2
         cy = (ymin+ymax)/2
         # Roof omitted for a clear view of the robot, wand and wafer.
-        outer_y = ymax if room.direction == 1 else ymin
-        inner_y = ymin if room.direction == 1 else ymax
-        solid(structure, 'glass_inner', (ROOM_LENGTH, .012, ROOM_HEIGHT),
-              (room.x, inner_y, ROOM_HEIGHT/2),
+        solid(structure, 'glass_back', (ROOM_LENGTH, .012, ROOM_HEIGHT),
+              (room.x, ymax, ROOM_HEIGHT/2),
               color='.5 .75 .9 1', transparency=.82)
-        # The chassis stays outside.  Only the wand reaches through this
-        # one-foot service opening in the outside-facing wall.
-        half_opening = CORRIDOR_WIDTH/2
-        for i, (lo, hi) in enumerate(((room.x-ROOM_LENGTH/2, room.x-half_opening),
-                                       (room.x+half_opening, room.x+ROOM_LENGTH/2))):
-            solid(structure, f'glass_outer_{i}', (hi-lo, .012, ROOM_HEIGHT),
-                  ((lo+hi)/2, outer_y, ROOM_HEIGHT/2),
-                  color='.5 .75 .9 1', transparency=.82)
+        xmin, xmax = room.x-ROOM_LENGTH/2, room.x+ROOM_LENGTH/2
+        for wall_x, wall_name in ((xmin, 'left'), (xmax, 'right')):
+            solid(structure, f'glass_{wall_name}', (.012, ROOM_DEPTH, ROOM_HEIGHT),
+                  (wall_x, room.y, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.82)
+        opening = CORRIDOR_WIDTH
+        entry_x, exit_x = room.door_x('entry'), room.door_x('exit')
+        for i, (lo, hi) in enumerate(((xmin, entry_x-opening/2),
+                                      (entry_x+opening/2, exit_x-opening/2),
+                                      (exit_x+opening/2, xmax))):
+            solid(structure, f'glass_front_{i}', (hi-lo, .012, ROOM_HEIGHT),
+                  ((lo+hi)/2, ymin, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.82)
         for side in ('entry', 'exit'):
-            x = room.door_x(side)
-            half_passage = CORRIDOR_WIDTH/2
-            for i, (lo, hi) in enumerate(((ymin, room.y-half_passage),
-                                           (room.y+half_passage, ymax))):
-                solid(structure, f'{side}_wall_{i}', (.012, hi-lo, ROOM_HEIGHT),
-                      (x, (lo+hi)/2, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.78)
+            x, door_y = room.door_position(side)
             name = f'room_{room.number}_{side}_door'
             door = ET.parse(ROOT/'models/guillotine_door/model.sdf').getroot()
             door.find('model').set('name', name)
@@ -169,17 +178,18 @@ def generate():
                     element.findtext('geometry/box/size').split()[0] +
                     f' {CORRIDOR_WIDTH} ' + element.findtext('geometry/box/size').split()[2])
             save_model(name, door)
-            include(name, (x, room.y-center, 0.))
+            include(name, (x+center, door_y, 0.), heading=math.pi/2)
             for topic, ros_type, gz_type, direction in [
                     (ctrl.findtext('topic'), 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
                     (feedback, 'sensor_msgs/msg/JointState', 'gz.msgs.Model', 'GZ_TO_ROS')]:
                 mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
                                      ros_type_name=ros_type, gz_type_name=gz_type, direction=direction))
         tx, ty, _ = room.table
-        solid(structure, 'process_stage', (.22, .22, .154), (tx, ty, .077), color=BLUE)
+        solid(structure, 'process_stage', (.22, PROCESS_STAGE_DEPTH, SUPPORT_TOP), (tx, ty, SUPPORT_TOP/2), color=BLUE)
         for side in ('entry', 'exit'):
             hx, hy, _ = room.handoff(side)
-            solid(structure, f'{side}_handoff', (.16, .16, .154), (hx, hy, .077), color=SILVER)
+            solid(structure, f'{side}_handoff', (.16, .16, SUPPORT_TOP),
+                  (hx, hy, SUPPORT_TOP/2), color=SILVER)
         solid(structure, 'equipment', (.28, .12, .28),
               (room.x-.27*room.direction, cy+.25*room.direction, .14), color=SILVER)
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
@@ -188,21 +198,21 @@ def generate():
             marker = cv2.copyMakeBorder(marker, 40, 40, 40, 40, cv2.BORDER_CONSTANT, value=255)
             cv2.imwrite(str(ROOT/f'textures/room_{room.number}_{side}_apriltag.png'), marker)
         label = Image.new('RGB', (340, 50), '#cfe3f3')
-        action = ('SOURCE', 'TRANSFER', 'TRANSFER', 'DESTINATION')[room.number-1]
-        ImageDraw.Draw(label).text((8, 18), f'ROOM {room.number} / {action} / CLASS 100', fill='#173b50')
+        ImageDraw.Draw(label).text((8, 18), f'GLOVEBOX {room.number:02d} / CLASS 100', fill='#173b50')
         label.resize((1020, 150)).save(ROOT/f'textures/room_{room.number}_label.png')
         for side in ('entry', 'exit'):
-            sign_x = room.door_x(side)
-            sign_y = room.y - .19
-            normal = room.heading + (math.pi if side == 'entry' else 0.)
+            # Each marker stands ahead of the lane and reads back toward the
+            # approaching camera, so it is visible from the pre-junction
+            # decision stop before the robot commits to its track.
+            sign_x, sign_y, sign_z, normal = marker_pose(room, side)
             textured_plane(structure, f'{side}_apriltag',
-                           f'room_{room.number}_{side}_apriltag.png', .20, .20,
-                           (sign_x, sign_y, .27), (0, 0, normal), texture_prefix='../textures/')
+                           f'room_{room.number}_{side}_apriltag.png', MARKER_SIZE, MARKER_SIZE,
+                           (sign_x, sign_y, sign_z), (0, 0, normal),
+                           texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
                        (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
-                       (room.x, ymax + .01 if room.direction == 1 else ymin - .01, .55),
-                       (0, 0, 0 if room.direction == 1 else math.pi), texture_prefix='../textures/')
+                       (room.x, ymax+.01, .55), (0, 0, 0), texture_prefix='../textures/')
         process_robot(room)
     generate_raspbot()
     include('transport_robot', (*START, 0.), resource='raspbot_v2')
@@ -217,7 +227,7 @@ def generate():
     view = el(gui, 'plugin', filename='MinimalScene', name='3D View')
     el(view, 'engine', 'ogre2')
     el(view, 'scene', 'scene')
-    el(view, 'camera_pose', '0 -5.2 5.7 0 .83 1.5708')
+    el(view, 'camera_pose', '0 -9.0 12.5 0 1.05 1.5708')
     for filename, name in [('GzSceneManager', 'Scene Manager'),
                            ('InteractiveViewControl', 'View Control'), ('CameraTracking', 'Camera Tracking')]:
         el(gui, 'plugin', filename=filename, name=name)

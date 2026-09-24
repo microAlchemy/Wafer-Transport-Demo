@@ -1,0 +1,74 @@
+# Process reliability worker verification
+
+Wed Sep 23 11:24:19 EDT 2026
+
+Python 3.9.6
+
+## pytest (full suite)
+........................................................................ [ 44%]
+........................................................................ [ 88%]
+..................                                                       [100%]
+162 passed in 29.82s
+exit=0
+
+## pytest (process cell bundle)
+============================= test session starts ==============================
+platform darwin -- Python 3.9.6, pytest-8.4.2, pluggy-1.6.0 -- /Library/Developer/CommandLineTools/usr/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/srigan/Wafer-Transport-Demo/wafer_transport_sim
+configfile: setup.cfg
+collecting ... collected 14 items
+
+wafer_transport_sim/test/test_process_cells.py::test_generated_cells_place_the_cup_on_the_supported_wafer PASSED [  7%]
+wafer_transport_sim/test/test_process_cells.py::test_support_heights_and_wafer_model_agree PASSED [ 14%]
+wafer_transport_sim/test/test_process_cells.py::test_ubuntu_check_and_release_marker_cover_the_process_fault PASSED [ 21%]
+wafer_transport_sim/test/test_process_cells.py::test_cells_release_on_startup_before_reporting_ready PASSED [ 28%]
+wafer_transport_sim/test/test_process_cells.py::test_cell_that_never_releases_faults_instead_of_reporting_ready PASSED [ 35%]
+wafer_transport_sim/test/test_process_cells.py::test_active_cell_faults_when_required_feedback_goes_stale PASSED [ 42%]
+wafer_transport_sim/test/test_process_cells.py::test_stuck_cell_faults_on_the_motion_timeout PASSED [ 50%]
+wafer_transport_sim/test/test_process_cells.py::test_unacknowledged_attach_faults_and_retains_the_wafer PASSED [ 57%]
+wafer_transport_sim/test/test_process_cells.py::test_attach_is_refused_while_another_owner_holds_the_wafer PASSED [ 64%]
+wafer_transport_sim/test/test_process_cells.py::test_blue_stage_placement_is_verified_before_the_dwell PASSED [ 71%]
+wafer_transport_sim/test/test_process_cells.py::test_wafer_lost_after_pickup_faults_instead_of_carrying_on PASSED [ 78%]
+wafer_transport_sim/test/test_process_cells.py::test_process_dwell_keeps_requiring_the_supported_stage PASSED [ 85%]
+wafer_transport_sim/test/test_process_cells.py::test_external_fault_holds_the_cell_and_keeps_its_payload PASSED [ 92%]
+wafer_transport_sim/test/test_process_cells.py::test_full_internal_cycle_only_reports_ready_with_a_supported_exit_wafer PASSED [100%]
+
+============================== 14 passed in 0.04s ==============================
+exit=0
+
+## Generated process-cell geometry (all 11 cells)
+support_top=0.154 wafer_thickness=0.002 supported_wafer_z=0.155
+rail_z=0.475 gripper_z=0.293 cup_rest_bottom=0.186
+contact_z=-0.03 transit_wafer_z=0.185 lift_stroke=0.03 travel=0.44
+arm_top=0.433 rail_bottom=0.4475 clearance=0.0145
+GLOVEBOX_01: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_02: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_03: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_04: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_05: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_06: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_07: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_08: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_09: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_10: z_limits=(-0.03, 0.0) gripper_z=0.293
+GLOVEBOX_11: z_limits=(-0.03, 0.0) gripper_z=0.293
+exit=0
+
+## Generator determinism
+exit=0
+tree_md5_before=03599dc3483b215863433f57eb8eb68a
+tree_md5_after=03599dc3483b215863433f57eb8eb68a
+regeneration is byte-stable
+
+## Release archive
+-rw-r--r--@ 1 srigan  staff  501275 Sep 23 11:24 dist/wafer-transport-ubuntu26.04.zip
+     236
+eleven-glovebox-process-reliability-20260923
+No errors detected in compressed data of dist/wafer-transport-ubuntu26.04.zip.
+0
+no work-area or cache entries
+
+## Archive matches the workspace
+files checked=183 mismatched=0
+exit=0
