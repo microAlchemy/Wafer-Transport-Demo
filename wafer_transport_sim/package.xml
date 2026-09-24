@@ -2,7 +2,7 @@
 <package format="3">
   <name>wafer_transport_sim</name>
   <version>0.1.0</version>
-  <description>IR and AprilTag guided wafer transport through eleven simulated gloveboxes.</description>
+  <description>IR and AprilTag guided wafer transport through ten simulated gloveboxes on two U-shaped tracks.</description>
   <maintainer email="maintainer@example.com">Wafer Transport Demo maintainers</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_python</buildtool_depend>

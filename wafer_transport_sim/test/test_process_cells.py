@@ -14,7 +14,7 @@ import pytest
 
 from test_controllers import ros, Scalar, pose  # noqa: F401  (fixture and helpers)
 from wafer_transport_sim.four_room_layout import (
-    ROOMS, PROCESS_ARM_CENTER, PROCESS_ARM_LENGTH, PROCESS_ARM_TOP, PROCESS_CONTACT_Z,
+    ROOMS, ROOM_DEPTH, PROCESS_ARM_CENTER, PROCESS_ARM_LENGTH, PROCESS_ARM_TOP, PROCESS_CONTACT_Z,
     PROCESS_CUP_LENGTH, PROCESS_CUP_OFFSET, PROCESS_CUP_REST_BOTTOM, PROCESS_GRIPPER_Z,
     PROCESS_LIFT_STROKE, PROCESS_RAIL_BOTTOM, PROCESS_TRAVEL, PROCESS_TRANSIT_WAFER_Z,
     SUPPORT_TOP, SUPPORTED_WAFER_Z, WAFER_THICKNESS)
@@ -151,7 +151,7 @@ class Cell:
     def wafer(self):
         if self.attachment == 'attached':
             ex, ey, _ = self.room.handoff('entry')
-            base = (ex + self.joint(X), ey,
+            base = (*self.room.local_to_world(-PROCESS_TRAVEL/2+self.joint(X), -ROOM_DEPTH/2+.10),
                     SUPPORTED_WAFER_Z + (self.joint(Z) - PROCESS_CONTACT_Z))
         else:
             base = self.support(self.location)

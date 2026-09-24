@@ -1,4 +1,4 @@
-"""Operate the rail robots inside the eleven Class 100 process cells.
+"""Operate the rail robots inside the ten Class 100 process cells.
 
 Every generated cell parks its vacuum cup at a derived clearance above the
 support surfaces, so one transfer lowers the cup onto the supported wafer,
@@ -6,7 +6,7 @@ attaches and acknowledges, lifts clear of the shelf, carries the wafer to the
 blue stage, lowers and releases it, verifies the supported dwell, picks it up
 again and places it on the exit handoff. The cells load attached because the
 Gazebo detachable-joint system attaches on its first update, so the controller
-parks all eleven cups on their own supports before the transport may start.
+parks all ten cups on their own supports before the transport may start.
 
 Active steps fault on stale feedback, on a motion or attachment timeout, when
 another owner still holds the wafer and whenever the wafer is no longer on the
@@ -264,7 +264,7 @@ class ProcessCellController(DemoNode):
             self.hold()
         elif self.state in ('RELEASE', 'IDLE'):
             if self.release_cells() and self.state == 'RELEASE':
-                self.change('IDLE', '[ProcessCell] eleven cells released on their supports')
+                self.change('IDLE', '[ProcessCell] ten cells released on their supports')
         elif self.room:
             self.active()
         self.send('/process/state', String, self.state, True)

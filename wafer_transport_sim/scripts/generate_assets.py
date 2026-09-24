@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared SDF model-building helpers for the eleven-glovebox generator."""
+"""Shared SDF model-building helpers for the ten-glovebox generator."""
 from pathlib import Path
 import math
 import xml.etree.ElementTree as ET

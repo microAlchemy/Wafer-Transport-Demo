@@ -1,9 +1,10 @@
-# Eleven-glovebox wafer transport simulation
+# Ten-glovebox U-layout wafer transport simulation
 
-The default Gazebo world implements the supplied aerial layout as a linear
-Class 100 facility with **11 gloveboxes**. Every glovebox is exactly
-1.2192 × 0.9144 × 1.2192 m (4 × 3 × 4 ft), adjacent boxes have a 0.3048 m
-(1 ft) separation, and each front service corridor is 0.3048 m wide.
+The default Gazebo world implements the supplied aerial U layout as a
+Class 100 facility with **10 gloveboxes**: four across the top, two down the left,
+and four across the bottom. Every glovebox is exactly
+1.2192 × 0.9144 × 1.2192 m (4 × 3 × 4 ft), the route corridors are 0.3048 m (1 ft) wide, and the robot remains outside
+every box.
 
 A Yahboom Raspbot V2 follows a two-track black tape network. Track 1 is the main
 lane farthest from the doors; Track 2 is the service lane beside them. At each
@@ -14,7 +15,7 @@ A separate orange rail robot inside that glovebox collects the wafer, lowers it
 onto the blue process stage, holds it there for the configured processing
 period, and carries it to the exit handoff. The Raspbot confirms the exit tag
 plus the completed service cell, collects the wafer through the second door,
-returns to Track 1 through the following rung, and repeats. After Glovebox 11 it
+returns to Track 1 through the following rung, and repeats. After Glovebox 10 it
 turns around at the end of Track 1 and returns home on Track 1 with the
 processed wafer in its carrier.
 
@@ -36,18 +37,18 @@ fi
 test -f /mnt/utm/wafer-transport-ubuntu26.04.zip
 unzip -o /mnt/utm/wafer-transport-ubuntu26.04.zip -d ~/wafer-mobile-update
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
-grep -qx 'eleven-glovebox-turn-recovery-20260924' wafer_transport_sim/config/release.txt || {
+grep -qx 'ten-glovebox-u-tracks-20260924' wafer_transport_sim/config/release.txt || {
   echo 'STOP: UTM is seeing an older ZIP.'
   exit 1
 }
 source /opt/ros/lyrical/setup.bash
-colcon --log-base log-eleven-boxes build \
+colcon --log-base log-u-tracks build \
   --base-paths ./wafer_transport_sim \
-  --build-base build-eleven-boxes \
-  --install-base install-eleven-boxes \
+  --build-base build-u-tracks \
+  --install-base install-u-tracks \
   --symlink-install \
   --packages-select wafer_transport_sim
-source install-eleven-boxes/local_setup.bash
+source install-u-tracks/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py gui:=true
 )
 ```
@@ -57,27 +58,27 @@ For later launches:
 ```bash
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
 source /opt/ros/lyrical/setup.bash
-source install-eleven-boxes/local_setup.bash
+source install-u-tracks/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py gui:=true
 ```
 
 ## Aerial layout
 
-The 18 mm tape is a network, not a single fixed trajectory:
+The 18 mm black tape follows the red perimeter route in the supplied sketch,
+with two parallel U-shaped lanes and 20 crossing rungs:
 
-- **Track 1** is one continuous straight main lane below all 11 boxes.
-- **Track 2** is one continuous straight service lane beside the doors, exactly
-  one 1 ft lane pitch (0.3048 m) beyond Track 1.
-- 22 straight transverse rungs join the two lanes, one either side of every
-  glovebox at `room.x ± 0.45 m`. Each rung is clear of the 1 ft door opening and
-  of the box front plane, so a turning robot never sweeps a door leaf or a box
-  corner.
-- Entry and exit stops sit under the two guillotine doors on Track 2.
+- **Track 1** is the outer U, carrying the robot between boxes and back home.
+- **Track 2** is the inner U beside the guillotine doors. Its centerline is
+  0.3048 m from Track 1 on each straight leg.
+- A rung before each box leads from Track 1 to Track 2; another after the
+  box returns to Track 1. AprilTags authorize each choice in the FSM.
+- Both tracks turn around the top-left and bottom-left corners. The robot
+  slows and steers on its selected edge through those bends.
 
-There is no raised per-door detour, no red tape, and no third return lane: the
-route home is Track 1 itself. The controller selects one finite edge at a time
-and projects the robot onto that edge only, so the parallel lane can never
-capture it.
+The tapes are black in Gazebo. The red in the sketch indicates their route; it
+is not a physical red strip in the simulation. There is no third return lane.
+The generated [overhead preview](docs/ten-glovebox-u-layout.png) shows the
+committed box and tape positions.
 
 The Raspbot chassis stays outside every glovebox. Only its telescoping wand
 crosses an open door. Each box contains its own rail robot, blue process stage,
@@ -93,7 +94,7 @@ complete handoff visible from the Gazebo aerial camera.
 | `transport_controller` | Sole `/cmd_vel` owner; runs the two-track route, tag, junction, door, and Raspbot handoff state machine |
 | `ir_line_follower` | Produces four IR probe readings and a steering candidate from the live robot pose and tape geometry |
 | `apriltag_detector` | Decodes AprilTag 36h11 IDs from actual forward-camera frames and requires three consistent frames |
-| `process_cell_controller` | Controls all 11 internal rail robots and verifies entry, process, and exit wafer placement |
+| `process_cell_controller` | Controls all 10 internal rail robots and verifies entry, process, and exit wafer placement |
 | `parameter_bridge` | Bridges commands and feedback between ROS 2 and Gazebo |
 
 Gazebo provides MecanumDrive, joint position control, joint feedback, pose
@@ -131,7 +132,7 @@ publishing, cameras, and detachable-joint systems.
 The Raspbot remains stopped while a door moves or its wand is extended. It
 continues only after joint feedback confirms that the door is closed and the
 wand is stowed. The next glovebox cannot start until the preceding exit handoff
-has been verified. After Glovebox 11 the FSM runs `RETURN_HOME`, `TURNAROUND`
+has been verified. After Glovebox 10 the FSM runs `RETURN_HOME`, `TURNAROUND`
 (a measured 180° turn at the end of Track 1) and `HOME_RETURN`, and then
 `VERIFY_DELIVERY`.
 
@@ -148,7 +149,7 @@ controller read the same heights from `four_room_layout.py`, so a trip is:
 lower onto the supported wafer, attach and acknowledge, lift clear of the shelf,
 translate to the blue stage, lower and release, verify the supported dwell for
 `process_hold` seconds, pick the wafer back up, place it on the exit handoff and
-retract. Gazebo attaches a detachable joint on its first update, so all eleven
+retract. Gazebo attaches a detachable joint on its first update, so all ten
 cells are parked on their own supports at startup: the transport may not start
 its mission until `/process/cells_detached` reports true.
 
@@ -160,11 +161,11 @@ commanded joint motion, keeps the cell's attachment state and publishes
 
 ## AprilTags
 
-Each of the 11 gloveboxes has an entry and an exit AprilTag 36h11 PNG in
-`wafer_transport_sim/textures/room_N_{entry,exit}_apriltag.png`. IDs 0–21
-map to `GLOVEBOX_01_ENTRY`, `GLOVEBOX_01_EXIT`, ..., `GLOVEBOX_11_EXIT`.
+Each of the 10 gloveboxes has an entry and an exit AprilTag 36h11 PNG in
+`wafer_transport_sim/textures/room_N_{entry,exit}_apriltag.png`. IDs 0–19
+map to `GLOVEBOX_01_ENTRY`, `GLOVEBOX_01_EXIT`, ..., `GLOVEBOX_10_EXIT`.
 
-`wafer_transport_sim/scripts/generate_four_rooms.py` creates the 22 marker
+`wafer_transport_sim/scripts/generate_four_rooms.py` creates the 20 marker
 images with OpenCV and places each image on a sign in the generated
 `worlds/four_rooms.sdf`. `marker_pose()` in `four_room_layout.py` keeps signs
 ahead of their track junctions and facing the Raspbot's forward camera.
@@ -181,7 +182,7 @@ window opens; wrong, stale and previously seen tags cannot authorize the
 junction. The FSM then selects the Track 1 → Track 2 entry rung or the
 Track 2 → Track 1 exit rung. IR sensors follow the selected black tape, while
 odometry and model pose determine the actual stop. A tag alone never opens a
-door or completes docking. The robot returns home on Track 1 after box 11.
+door or completes docking. The robot returns home on Track 1 after box 10.
 
 These images and code serve the active mission; the retired QR station demo
 and its textures are no longer installed.
@@ -200,7 +201,7 @@ The four front IR probes are the primary steering input:
 If the simulated IR process is absent, stale, off-tape, or produces an unusable
 command, the controller follows the same generated tape from live Gazebo pose.
 This explicit `SIMULATED_IR` mode is the requested “pretend sensor” recovery.
-On the straight lanes the IR candidate is the primary steering input; the
+On each straight leg the IR candidate is the primary steering input; the
 bounded junction states steer onto the edge the route FSM selected. The pose
 fallback follows that same selected edge, so it can never choose a lane, and it
 does not bypass door, attachment, odometry, pose, or AprilTag checks.
@@ -254,7 +255,7 @@ Mission parameters are in `wafer_transport_sim/config/four_rooms.yaml`. Geometry
 and route constants are shared through `four_room_layout.py`; the historical
 filename is retained so existing launch commands continue to work.
 
-The two-track network, the 22 transverse rungs, the selected-edge route plan and
+The two U-shaped tracks, the 20 transverse rungs, the selected-edge route plan and
 the marker positions all come from the same module, and the world generator
 draws the tape and the signs from those values. `four_room_check` records the
 `/transport/track` and `/transport/route_segment` sequence on the VM and fails
@@ -266,12 +267,12 @@ Portable checks:
 ```bash
 PYTHONPATH=wafer_transport_sim python3 -m pytest wafer_transport_sim/test -q
 python3 wafer_transport_sim/scripts/generate_four_rooms.py
-python3 wafer_transport_sim/scripts/preview_two_track.py
+python3 wafer_transport_sim/scripts/preview_two_track.py --output docs/ten-glovebox-u-layout.png
 ```
 
 `generate_four_rooms.py` rebuilds the world, doors, process cells, textures and
 bridge mapping from the shared constants, and `preview_two_track.py` draws the
-top-view `docs/agent-work/two-track-fsm/two-track-overhead.png` from the world it
+top-view `docs/ten-glovebox-u-layout.png` from the world it
 just wrote. The Ubuntu archive is packaged from a staging copy so no local
 `dist`, cache or agent-work directory leaks into it:
 
@@ -306,7 +307,7 @@ first internal cell never acknowledges its pickup, which must fault the cell and
 stop the transport without a delivery.
 
 Raspbot dimensions, model assumptions, and hardware limitations are documented
-in [docs/raspbot_v2.md](docs/raspbot_v2.md). The package launches only the eleven-glovebox AprilTag mission.
+in [docs/raspbot_v2.md](docs/raspbot_v2.md). The package launches only the ten-glovebox AprilTag mission.
 
 Junction arrival braking targets the stop position rather than the boundary of its tolerance window, avoiding a low-speed deadband stall before the tag decision. `/transport/decision` reports FSM state, expected tag, authorization, measured velocity and fault. Repeated tag logs are limited to one per ID per five simulation seconds.
 

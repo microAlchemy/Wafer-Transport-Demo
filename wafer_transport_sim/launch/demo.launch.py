@@ -66,8 +66,8 @@ def generate_launch_description():
         DeclareLaunchArgument('gui', default_value='true', choices=['true', 'false']),
         DeclareLaunchArgument('ir_enabled', default_value='true', choices=['true', 'false'],
                               description='Disable probes to exercise simulated tape-following recovery'),
-        DeclareLaunchArgument('config', default_value='', description='Defaults to the eleven-glovebox configuration'),
-        DeclareLaunchArgument('bridge_config', default_value='', description='Defaults to the eleven-glovebox bridges'),
+        DeclareLaunchArgument('config', default_value='', description='Defaults to the ten-glovebox configuration'),
+        DeclareLaunchArgument('bridge_config', default_value='', description='Defaults to the ten-glovebox bridges'),
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.pathsep.join(paths)),
         OpaqueFunction(function=launch_nodes),
     ])

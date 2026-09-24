@@ -1,4 +1,4 @@
-"""Installed assets and interfaces for the active eleven-glovebox simulation."""
+"""Installed assets and interfaces for the active ten-glovebox simulation."""
 from pathlib import Path
 import ast
 import xml.etree.ElementTree as ET
@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_active_world_and_local_resources():
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
     names = [item.text for item in world.findall('.//include/name')]
-    assert len(names) == len(set(names)) == 36  # robot, carrier, wafer, 22 doors, 11 cells
+    assert len(names) == len(set(names)) == 33  # robot, carrier, wafer, 20 doors, 10 cells
     for path in ROOT.rglob('*.sdf'):
         document = ET.parse(path)
         for uri in document.findall('.//uri'):
@@ -27,9 +27,9 @@ def test_active_world_and_local_resources():
 def test_only_apriltag_machine_readable_images_are_packaged():
     textures = ROOT/'textures'
     tags = sorted(textures.glob('*_apriltag.png'))
-    assert len(tags) == 22
+    assert len(tags) == 20
     assert not list(textures.glob('*_qr.png'))
-    for room in range(1, 12):
+    for room in range(1, 11):
         assert (textures/f'room_{room}_entry_apriltag.png').is_file()
         assert (textures/f'room_{room}_exit_apriltag.png').is_file()
 

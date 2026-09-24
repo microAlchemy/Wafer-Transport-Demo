@@ -1,4 +1,4 @@
-"""Launch and observe the real eleven-glovebox simulation on Ubuntu."""
+"""Launch and observe the real ten-glovebox simulation on Ubuntu."""
 import argparse
 import json
 import os
@@ -136,7 +136,7 @@ class Observer(DemoNode):
     def report(self):
         if self.scenario == 'nominal' or self.scenario in RECOVERY_SCENARIOS:
             if self.value('/transport/state') != 'COMPLETE' or not self.value('/wafer_delivered'):
-                self.errors.append('Eleven-glovebox mission did not complete')
+                self.errors.append('Ten-glovebox mission did not complete')
             if self.value('/system/fault'):
                 self.errors.append('Unexpected mission fault: ' + self.value('/system/fault'))
             if self.value('/rooms/completed') != ','.join(ROOM_CODES):
@@ -149,12 +149,12 @@ class Observer(DemoNode):
             if self.scenario in {'lost_line', 'missing_ir'} and not self.saw_simulated_ir:
                 self.errors.append('Simulated IR recovery was not observed')
             if self.cycles != {(r.code, side) for r in ROOMS for side in ('entry', 'exit')}:
-                self.errors.append('Not all 22 door openings were verified')
+                self.errors.append('Not all 20 door openings were verified')
             required = {(r.code, location) for r in ROOMS for location in ('entry', 'exit', 'carrier')}
             if not required <= self.placements:
                 self.errors.append('Missing observed supported wafer placements')
             if not self.fresh('/poses/transport_robot') or not placed(self.position('transport_robot'), (*START, 0.), .04, .02):
-                self.errors.append('Robot did not return from all eleven gloveboxes')
+                self.errors.append('Robot did not return from all ten gloveboxes')
             self.errors.extend(self.route.errors())
             if self.attachment('vacuum') != 'detached':
                 self.errors.append('Final wafer still attached to wand')

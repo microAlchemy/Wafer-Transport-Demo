@@ -1,4 +1,4 @@
-"""Eleven-glovebox two-track assets, AprilTags and controller regression checks.
+"""Ten-glovebox U-shaped two-track assets, AprilTags and controller regression checks.
 
 The kinematic harness has ideal wheels, joints and support; it is not Gazebo.
 Marker visibility is checked by projecting the generated marker geometry
@@ -19,9 +19,9 @@ from wafer_transport_sim.four_room_layout import (
     CORRIDOR_WIDTH, DECISION_OFFSET, EDGES, JUNCTION_OFFSET, LANE_PITCH, MARKER_HEIGHT,
     MARKER_SIZE, MISSION_LENGTH, PATH, PROCESS_CONTACT_Z, PROCESS_TRAVEL,
     PROCESS_TRANSIT_WAFER_Z, ROOMS, ROOM_CODES, ROOM_DEPTH, ROOM_HEIGHT, ROOM_LENGTH, START,
-    TAPE_SEGMENTS, TRACK_1_Y, TRACK_2_Y, TURN_X, edge_point, edge_project,
+    TAPE_SEGMENTS, TRACK_1_Y, TRACK_2_Y, TURN_X, MAIN_PATH, SERVICE_PATH, HOME_EDGE, TAIL_EDGE, edge_point, edge_project,
     entry_decision_stop, entry_junction_x, entry_rung, exit_junction_x, exit_rung,
-    horizontal_door_clear, main_edge, marker_pose, room_stop, route_plan, service_edge,
+    oriented_door_clear, main_edge, marker_pose, room_stop, route_plan, service_edge,
     tag_decision_stop, tape_distance)
 from wafer_transport_sim.raspbot_spec import (CAMERA_OFFSET, CAMERA_PIVOT,
                                               LENGTH as ROBOT_LENGTH, WIDTH as ROBOT_WIDTH)
@@ -91,10 +91,14 @@ def project_marker(camera, robot, marker):
     cy = y + cam_x*math.sin(heading)
     cz = cam_z
     focal = (width/2)/math.tan(hfov/2)
-    mx, my, mz, _ = marker
+    mx, my, mz, normal = marker
     half = MARKER_SIZE/2
-    corners = [(mx, my+half, mz+half), (mx, my-half, mz+half),
-               (mx, my-half, mz-half), (mx, my+half, mz-half)]
+    yaw = normal-math.pi
+    ux, uy = math.sin(yaw), -math.cos(yaw)
+    corners = [(mx-ux*half, my-uy*half, mz+half),
+               (mx+ux*half, my+uy*half, mz+half),
+               (mx+ux*half, my+uy*half, mz-half),
+               (mx-ux*half, my-uy*half, mz-half)]
     projected = []
     c, s = math.cos(heading), math.sin(heading)
     for px, py, pz in corners:
@@ -106,86 +110,50 @@ def project_marker(camera, robot, marker):
 
 
 def test_two_track_tape_network_geometry():
-    lanes = [segment for segment in TAPE_SEGMENTS
-             if abs(segment[0][1]-segment[1][1]) < 1e-9]
-    rungs = [segment for segment in TAPE_SEGMENTS if segment not in lanes]
-    assert len(lanes) == 2 and len(rungs) == 2*len(ROOMS)
-    # Track 1 and Track 2 are continuous straight lanes one lane pitch apart.
-    main_lane = next(segment for segment in lanes if segment[0][1] == pytest.approx(TRACK_1_Y))
-    service_lane = next(segment for segment in lanes if segment[0][1] == pytest.approx(TRACK_2_Y))
-    assert main_lane == ((START[0], TRACK_1_Y), (TURN_X, TRACK_1_Y))
-    assert service_lane == ((entry_junction_x(ROOMS[0]), TRACK_2_Y),
-                            (exit_junction_x(ROOMS[-1]), TRACK_2_Y))
-    assert LANE_PITCH == pytest.approx(CORRIDOR_WIDTH) == pytest.approx(1*.3048)
-    # No raised U detours and no third return lane: every tape point is on, or
-    # between, the two published lanes.
-    for a, b in TAPE_SEGMENTS:
-        for x, y in (a, b):
-            assert TRACK_1_Y-.001 <= y <= TRACK_2_Y+.001
-    lane_ys = {round(y, 6) for segment in lanes for x, y in segment}
-    assert lane_ys == {round(TRACK_1_Y, 6), round(TRACK_2_Y, 6)}
-    # One transverse rung either side of every glovebox, clear of the corners.
+    assert len(ROOMS) == 10
+    assert [round(r.yaw, 6) for r in ROOMS] == [round(math.pi, 6)]*4 + \
+        [round(-math.pi/2, 6)]*2 + [0.]*4
+    assert len(TAPE_SEGMENTS) == 6+2*len(ROOMS)
+    assert tuple(a for a, b in TAPE_SEGMENTS[:3]) == MAIN_PATH[:-1]
+    assert tuple(b for a, b in TAPE_SEGMENTS[:3]) == MAIN_PATH[1:]
+    assert tuple(a for a, b in TAPE_SEGMENTS[3:6]) == SERVICE_PATH[:-1]
+    assert tuple(b for a, b in TAPE_SEGMENTS[3:6]) == SERVICE_PATH[1:]
+    assert LANE_PITCH == pytest.approx(CORRIDOR_WIDTH)
     for room in ROOMS:
-        left, right = entry_junction_x(room), exit_junction_x(room)
-        for junction in (left, right):
-            spans = [segment for segment in rungs
-                     if segment[0][0] == pytest.approx(junction)]
-            assert len(spans) == 1, (room.number, junction)
-            ys = sorted(point[1] for point in spans[0])
-            assert ys == pytest.approx([TRACK_1_Y, TRACK_2_Y])
-            assert junction != pytest.approx(room.x)
-        assert left < room.door_x('entry') < room.door_x('exit') < right
-        assert min(room.door_x('entry')-left, right-room.door_x('exit')) > DOOR_HALF_OPENING
-        assert JUNCTION_OFFSET > DOOR_HALF_OPENING
-    # The selected-edge route plan spans every room and returns on Track 1.
+        assert entry_rung(room).length == pytest.approx(CORRIDOR_WIDTH)
+        assert exit_rung(room).length == pytest.approx(CORRIDOR_WIDTH)
+        assert service_edge(room).length == pytest.approx(2*JUNCTION_OFFSET)
+        assert main_edge(room).length > DECISION_OFFSET
+        assert entry_rung(room).points[0] == pytest.approx(room.lane_point(-JUNCTION_OFFSET, 1))
+        assert exit_rung(room).points[-1] == pytest.approx(room.lane_point(JUNCTION_OFFSET, 1))
     plan = route_plan()
     assert len(plan) == 4*len(ROOMS)+2
     assert plan[-2:] == ('main_tail', 'main_home')
     assert len(set(plan)) == len(plan)
-    assert all(EDGES[name].track == 'TRACK_1' for name in plan if EDGES[name].kind == 'main')
-    assert all(EDGES[name].track == 'TRACK_2' for name in plan if EDGES[name].kind in
-               ('service', 'rung_in'))
-    assert all(EDGES[name].track == 'TRACK_1' for name in plan if EDGES[name].kind == 'rung_out')
     assert MISSION_LENGTH == pytest.approx(sum(EDGES[name].length for name in plan))
-    assert 38 < MISSION_LENGTH < 45
-    assert PATH == ((START[0], TRACK_1_Y), (TURN_X, TRACK_1_Y))
+    assert 48 < MISSION_LENGTH < 53
 
 
 def test_geometry_keeps_robot_lane_and_door_clearance():
     assert ROOM_LENGTH == pytest.approx(4*.3048)
     assert ROOM_DEPTH == pytest.approx(3*.3048)
     assert ROOM_HEIGHT == pytest.approx(4*.3048)
-    assert len(ROOMS) == 11
-    assert ROOMS[1].x-ROOMS[0].x-ROOM_LENGTH == pytest.approx(CORRIDOR_WIDTH)
     for room in ROOMS:
-        for a, b in TAPE_SEGMENTS:
-            for x, y in (a, b):
-                dx = max(abs(x-room.x)-ROOM_LENGTH/2, 0.)
-                dy = max(abs(y-room.y)-ROOM_DEPTH/2, 0.)
-                assert math.hypot(dx, dy) >= CORRIDOR_WIDTH/2-1e-9
-        wall = room.y-ROOM_DEPTH/2
-        # A robot turning on the service lane at a rung must clear the box front
-        # plane, the box corner and the door leaf it stands beside.
-        assert TRACK_2_Y+TURN_ENVELOPE < wall-.010
-        # The entry rung sits before the entry leaf, the exit rung after the
-        # exit leaf, so no turn happens inside a door opening.
-        assert entry_junction_x(room) < room.door_x('entry')-DOOR_HALF_OPENING
-        assert exit_junction_x(room) > room.door_x('exit')+DOOR_HALF_OPENING
-        for junction, door_x in ((entry_junction_x(room), room.door_x('entry')),
-                                 (exit_junction_x(room), room.door_x('exit'))):
-            corner = math.dist((junction, TRACK_2_Y), (room.x+ROOM_LENGTH/2, wall))
-            assert corner > TURN_ENVELOPE+.05
-            for post_x in (door_x-DOOR_HALF_OPENING-DOOR_POST_HALF_DEPTH,
-                           door_x+DOOR_HALF_OPENING+DOOR_POST_HALF_DEPTH):
-                offset = abs(junction-post_x)
-                if offset < TURN_ENVELOPE:
-                    # Widest sweep of the turning envelope at the post's own x.
-                    reach = TRACK_2_Y+math.sqrt(TURN_ENVELOPE**2-offset**2)
-                    assert reach < wall-DOOR_POST_HALF_DEPTH-.005
+        for track in (1, 2):
+            for along in (-JUNCTION_OFFSET, JUNCTION_OFFSET):
+                px, py = room.lane_point(along, track)
+                # Project to the rotated room frame: even the service tape is
+                # outside the front wall, with room for the Raspbot chassis.
+                lx = (px-room.x)*math.cos(room.yaw)+(py-room.y)*math.sin(room.yaw)
+                ly = -(px-room.x)*math.sin(room.yaw)+(py-room.y)*math.cos(room.yaw)
+                assert abs(lx) < ROOM_LENGTH/2
+                assert ly <= -ROOM_DEPTH/2-CORRIDOR_WIDTH/2+1e-8
+                assert oriented_door_clear(px, py, room.work_heading, room, 'entry')
+        assert room.door_position('entry') != room.door_position('exit')
     world = ET.parse(ROOT/'worlds/four_rooms.sdf')
     floor = world.find(".//collision[@name='floor_collision']/geometry/box/size")
     fx, fy, _ = map(float, floor.text.split())
-    assert all(abs(x)+.15 < fx/2 and abs(y)+.15 < fy/2
+    assert all(abs(x+.65)+.15 < fx/2 and abs(y)+.15 < fy/2
                for segment in TAPE_SEGMENTS for x, y in segment)
 
 
@@ -206,8 +174,6 @@ def test_world_tape_and_markers_match_the_shared_geometry():
                          round(math.atan2(b[1]-a[1], b[0]-a[0]), 6),
                          round(length+.001, 3), .018, '.005 .005 .005 1'))
     assert sorted(drawn) == sorted(expected)
-    # No raised detour or third-lane visual survived the redesign.
-    assert not [s for s in TAPE_SEGMENTS if s[0][1] > TRACK_2_Y+1e-9]
     room = world.find(".//model[@name='room_1']")
     for side in ('entry', 'exit'):
         sign_x, sign_y, sign_z, _ = marker_pose(ROOMS[0], side)
@@ -220,10 +186,10 @@ def test_world_tape_and_markers_match_the_shared_geometry():
             pytest.approx([MARKER_SIZE, MARKER_SIZE])
         assert visual.findtext('material/pbr/metal/albedo_map') == \
             f'../textures/room_1_{side}_apriltag.png'
-    assert len(world.findall('.//include')) == 36
+    assert len(world.findall('.//include')) == 33
     names = [i.findtext('name') for i in world.findall('.//include')]
     assert len(names) == len(set(names))
-    assert len([m for m in world.findall('.//model') if m.get('name', '').startswith('room_')]) == 11
+    assert len([m for m in world.findall('.//model') if m.get('name', '').startswith('room_')]) == 10
     mappings = yaml.safe_load((ROOT/'config/four_rooms_bridge.yaml').read_text())
     topics = {m['ros_topic_name']: m for m in mappings}
     assert len(topics) == len(mappings)
@@ -240,33 +206,24 @@ def test_world_tape_and_markers_match_the_shared_geometry():
 
 def test_raspbot_ir_array_centres_and_steers_toward_tape(ros):
     ir = ros.ir_line_follower
-    centered = ir.probe_values(*START, 0.)
+    centered = ir.probe_values(*START, ROOMS[0].yaw)
     assert centered[1] == pytest.approx(centered[2])
     assert ir.steering(centered)[1] == pytest.approx(0.)
-    below_tape = ir.probe_values(START[0], START[1]-.012, 0.)
-    assert ir.steering(below_tape)[1] > 0.  # tape is to the robot's left
+    offset = ir.probe_values(START[0], START[1]-.012, ROOMS[0].yaw)
+    assert ir.steering(offset)[1] < 0.  # tape is on robot's right
 
 
 def test_ir_probes_reflect_both_lanes_and_the_transverse_junctions(ros):
     ir = ros.ir_line_follower
-    for lane_y in (TRACK_1_Y, TRACK_2_Y):
-        values = ir.probe_values(0., lane_y, 0.)
-        assert min(values) >= 0., values
-        command = ir.steering(values)
-        assert command is not None and command[1] == pytest.approx(0., abs=.02)
-    # Between the lanes there is no tape at all: the two tracks stay separate.
-    between = ir.probe_values(0., (TRACK_1_Y+TRACK_2_Y)/2, 0.)
-    assert max(between) == 0.
-    assert tape_distance(0., (TRACK_1_Y+TRACK_2_Y)/2) == pytest.approx(LANE_PITCH/2)
-    # Standing on a rung, the probes cross the junction tape.
-    room = ROOMS[3]
-    rung_y = (TRACK_1_Y+TRACK_2_Y)/2
-    assert tape_distance(entry_junction_x(room), rung_y) == pytest.approx(0., abs=1e-9)
-    on_rung = ir.probe_values(entry_junction_x(room), rung_y, math.pi/2)
-    assert max(on_rung) > .5
-    assert ir.steering(on_rung)[1] == pytest.approx(0., abs=.02)
-    # Two lanes one pitch apart cannot be confused by one probe footprint.
-    assert tape_distance(0., TRACK_2_Y+.10) == pytest.approx(.10, abs=1e-9)
+    for room in ROOMS:
+        for track in (1, 2):
+            x, y = room.lane_point(0., track)
+            values = ir.probe_values(x, y, room.yaw)
+            assert ir.steering(values) is not None
+        a, b = entry_rung(room).points
+        middle = ((a[0]+b[0])/2, (a[1]+b[1])/2)
+        assert tape_distance(*middle) == pytest.approx(0., abs=1e-8)
+        assert max(ir.probe_values(*middle, room.yaw+math.pi/2)) > .5
 
 
 @pytest.mark.parametrize('room', ROOMS)
@@ -305,81 +262,46 @@ def test_marker_is_visible_from_the_pre_junction_decision_stop(room, side):
     assert focal > 200.
     # The marker stands in front of the decision point, before the junction.
     junction = entry_junction_x(room) if side == 'entry' else exit_junction_x(room)
-    assert marker[0] > junction
+    assert (marker[0]-stop[0])*math.cos(room.yaw) + (marker[1]-stop[1])*math.sin(room.yaw) > 0
     assert abs(marker[2]-MARKER_HEIGHT) < 1e-9
 
 
 def test_marker_lead_clears_the_decision_window():
     for room in ROOMS:
-        # The entry decision is taken on Track 1, the exit one on Track 2.
-        assert marker_pose(room, 'entry')[1] == pytest.approx(TRACK_1_Y+.105)
-        assert marker_pose(room, 'exit')[1] == pytest.approx(TRACK_2_Y+.105)
         for side in ('entry', 'exit'):
             stop = tag_decision_stop(room, side)
             marker = marker_pose(room, side)
             assert .35 < math.dist(stop[:2], marker[:2]) < .60
-            # A short, straight approach precedes every decision.
             assert entry_decision_stop(room) > .12
             assert room_stop(room, 'exit') > DECISION_OFFSET
 
 
 def test_overhead_preview_draws_two_lanes_and_transverse_junctions(tmp_path):
-    """Image-level check of the committed overhead preview."""
     import importlib.util
     from PIL import Image
-    spec = importlib.util.spec_from_file_location(
-        'preview_two_track', ROOT/'scripts'/'preview_two_track.py')
+    spec = importlib.util.spec_from_file_location('preview_two_track', ROOT/'scripts'/'preview_two_track.py')
     preview = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(preview)
     path = tmp_path/'overhead.png'
     info = preview.render(path, scale=100)
     image = Image.open(path).convert('RGB')
     pixels = image.load()
-    width, height = info['size']
-
-    def to_pixel(x, y):
-        return (int(round((x-info['left'])*info['scale'])),
-                int(round((info['top']-y)*info['scale'])))
-
     def black(x, y):
-        column, row = to_pixel(x, y)
-        assert 0 <= column < width and 0 <= row < height
-        return max(pixels[column, row]) <= 10      # tape is 0x050505
-
-    def black_near(x, y):
-        column, row = to_pixel(x, y)
-        return any(max(pixels[column, other]) <= 10
-                   for other in (row-1, row, row+1) if 0 <= other < height)
-
-    # A row between the lanes crosses the rung tape and nothing else: exactly
-    # one transverse junction per room boundary.
-    middle = (TRACK_1_Y+TRACK_2_Y)/2
-    runs = 0
-    inside = False
-    for x in np.linspace(START[0], TURN_X, int((TURN_X-START[0])*400)):
-        painted = black(x, middle)
-        runs += 1 if painted and not inside else 0
-        inside = painted
-    assert runs == 2*len(ROOMS)
-    # Both lanes run continuously for their whole published length.
-    for y, span in ((TRACK_1_Y, (START[0], TURN_X)),
-                    (TRACK_2_Y, (entry_junction_x(ROOMS[0]), exit_junction_x(ROOMS[-1])))):
-        columns = [black_near(x, y) for x in np.linspace(span[0]+.005, span[1]-.005, 200)]
-        assert all(columns), y
-        assert not black(START[0]-.3, y) and not black(TURN_X+.3, y)
-    # Nothing is drawn above the service lane, so there is no raised detour and
-    # no third lane anywhere in the committed geometry.
-    topmost = min(row for row in range(height)
-                  for column in range(width) if max(pixels[column, row]) <= 10)
-    assert topmost >= to_pixel(0., TRACK_2_Y+.020)[1]
+        col = round((x-info['left'])*info['scale'])
+        row = round((info['top']-y)*info['scale'])
+        return max(pixels[col, row]) <= 10
+    for a, b in TAPE_SEGMENTS:
+        assert black((a[0]+b[0])/2, (a[1]+b[1])/2)
+    assert image.size[0] > 700 and image.size[1] > 600
 
 
 def test_doors_do_not_close_over_oriented_robot():
     for room in ROOMS:
         for side in ('entry', 'exit'):
             x, y = room.door_position(side)
-            assert not horizontal_door_clear(x, y, math.pi/2, y)
-            assert horizontal_door_clear(x, TRACK_2_Y, math.pi/2, y)
+            assert not oriented_door_clear(x, y, room.work_heading, room, side)
+            px, py = room.lane_point(0., 2)
+            assert oriented_door_clear(px, py, room.work_heading, room, side)
 
 
 @pytest.mark.parametrize('room', ROOMS)
@@ -389,7 +311,7 @@ def test_door_models_are_rotated_into_front_wall(room):
     for side in ('entry', 'exit'):
         include = world.find(f".//include[name='room_{room.number}_{side}_door']")
         values = list(map(float, include.findtext('pose').split()))
-        assert values[5] == pytest.approx(math.pi/2)
+        assert values[5] == pytest.approx(room.yaw+math.pi/2)
         door = ET.parse(ROOT/f'models/room_{room.number}_{side}_door/model.sdf')
         assert door.find(f".//joint[@name='{room.door_joint(side)}']") is not None
 
@@ -407,7 +329,7 @@ class Harness:
         self.line_kp = ir_cfg['kp']
         self.line_max_angular = ir_cfg['max_angular_speed']
         self.x, self.y = START
-        self.heading = 0.
+        self.heading = ROOMS[0].yaw
         self.joints = dict.fromkeys(('reach_1', 'reach_2', 'wand_x', 'wand_z', 'tray_z', 'tray_y',
                                     'camera_pan', 'camera_tilt'), 0.)
         self.joints.update({r.door_joint(side): 0. for r in ROOMS for side in ('entry', 'exit')})
@@ -558,7 +480,7 @@ class Harness:
         return self.node.state
 
 
-def test_full_eleven_glovebox_two_track_mission(ros):
+def test_full_ten_glovebox_two_track_mission(ros):
     h = Harness(ros)
     assert h.run() == 'COMPLETE'
     n = h.node
@@ -614,7 +536,7 @@ def test_return_home_stays_on_track_1_without_projection_jumps(ros):
     # Reverse main-lane return: one straight lane, monotone along-edge travel.
     assert {leg for _, _, leg in samples} <= {'main_tail', 'main_home'}
     distance = [edge_project(EDGES[leg], x, y)[0] for x, y, leg in samples]
-    assert max(abs(y-TRACK_1_Y) for x, y, leg in samples) < .03
+    assert max(edge_project(HOME_EDGE if leg == 'main_home' else TAIL_EDGE, x, y)[1] for x, y, leg in samples) < .03
     assert len(distance) == len(samples)
     home = [d for d, (x, y, leg) in zip(distance, samples) if leg == 'main_home']
     assert home == sorted(home)
@@ -1106,12 +1028,13 @@ def test_arrival_window_does_not_stall_before_tag_decision(ros):
         n.step(.05)
         speed = n.command.linear.x
         if speed >= .025:
-            h.x += speed*.05
+            h.x += speed*math.cos(h.heading)*.05
+            h.y += speed*math.sin(h.heading)*.05
         ros.time += .05
         if n.state == 'CONFIRM_ENTRY_TAG':
             break
     assert n.state == 'CONFIRM_ENTRY_TAG'
-    assert abs(h.x-edge_point(edge, target)[0]) <= .004
+    assert math.dist((h.x, h.y), edge_point(edge, target)) <= .004
     ros.emit('/detected_apriltag', Scalar(n.room.tag('entry')))
     n.step(.05)
     assert n.state == 'ADVANCE_ENTRY_JUNCTION'

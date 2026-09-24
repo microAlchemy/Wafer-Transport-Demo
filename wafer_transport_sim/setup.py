@@ -19,7 +19,7 @@ setup(
     zip_safe=False,
     maintainer='Wafer Transport Demo maintainers',
     maintainer_email='maintainer@example.com',
-    description='ROS 2 eleven-glovebox IR and AprilTag wafer transport simulation',
+    description='ROS 2 ten-glovebox IR and AprilTag wafer transport simulation',
     license='Apache-2.0', url='https://github.com/srigan-s/Wafer-Transport-Demo',
     entry_points={'console_scripts': [
         f'{name} = {PACKAGE}.{name}:main' for name in (

@@ -1,4 +1,4 @@
-"""One command owner for a feedback-gated, eleven-glovebox wafer mission.
+"""One command owner for a feedback-gated, ten-glovebox wafer mission.
 
 World pose bounds the selected tape edge and the docking stops. The four-probe
 IR array supplies primary steering on the straight lanes; the route FSM steers
@@ -18,9 +18,9 @@ from rclpy.clock import Clock, ClockType
 from .common import DemoNode, LATCHED, run
 from .core import angle_error, clamp, placed, yaw
 from .four_room_layout import (ROOMS, START, EDGES, HOME_EDGE, TAIL_EDGE, edge_heading,
-                               DOOR_APPROACH_HEADING, edge_point, edge_project,
+                               edge_point, edge_project,
                                entry_decision_stop, entry_rung, exit_rung,
-                               horizontal_door_clear, main_edge, room_stop, service_edge)
+                               oriented_door_clear, main_edge, room_stop, service_edge)
 
 TRANSFER = ('PICK_POSITION', 'PICK_LOWER', 'ATTACH', 'LIFT', 'PLACE_POSITION',
             'PLACE_LOWER', 'RELEASE', 'RETRACT', 'VERIFY_PLACE')
@@ -193,10 +193,20 @@ class FourRoomController(DemoNode):
             return False
         if remaining <= .004:
             return self.stopped()
+        # A 90-degree U perimeter corner has no AprilTag branch.  Begin the
+        # measured turn before the front IR probes leave the incoming strip;
+        # the selected edge still bounds the manoeuvre and the IR array remains
+        # the primary steering source on each straight run.
+        traversed = 0.
+        corner_soon = False
+        for a, b in zip(edge.points, edge.points[1:-1]):
+            traversed += math.dist(a, b)
+            if abs(distance-traversed) < .16:
+                corner_soon = True
         # IR is primary on the straight lanes.  Bounded junction states and the
         # final probe length of a leg steer the selected edge directly.
         ir_ready = self.primary_ready()
-        if junction or remaining <= PROBE_LOOKAHEAD:
+        if junction or corner_soon or remaining <= PROBE_LOOKAHEAD:
             candidate = self.lookahead_command(edge, distance)
         elif ir_ready:
             candidate = self.values['/ir/cmd_vel']
@@ -210,6 +220,8 @@ class FourRoomController(DemoNode):
         # deadband can prevent the FSM from ever reaching its decision state.
         braking_speed = math.sqrt(2*self.param('braking_acceleration', .35)*max(0., remaining))
         requested = min(max(0., candidate.linear.x), speed, braking_speed)
+        if corner_soon:
+            requested = min(requested, .08)
         if remaining > .012:
             requested = min(speed, max(self.param('minimum_cruise_speed', .07), requested))
         self.command.angular.z = clamp(candidate.angular.z, -1.4, 1.4)
@@ -251,12 +263,18 @@ class FourRoomController(DemoNode):
         velocity = motion.twist.twist if motion is not None else None
         measured = (f'v={math.hypot(velocity.linear.x, velocity.linear.y):.4f} '
                     f'w={velocity.angular.z:.4f}' if velocity else 'odom missing')
+        room = self.room
+        next_main = TAIL_EDGE if self.index == len(ROOMS)-1 else main_edge(ROOMS[self.index+1])
         turn_targets = {
-            'ALIGN_ENTRY_JUNCTION': math.pi/2, 'ALIGN_SERVICE_LANE': 0.,
-            'ALIGN_ENTRY': DOOR_APPROACH_HEADING,
-            'ALIGN_AFTER_ENTRY': 0., 'ALIGN_EXIT': DOOR_APPROACH_HEADING,
-            'ALIGN_AFTER_EXIT': 0., 'ALIGN_RETURN_JUNCTION': -math.pi/2,
-            'ALIGN_MAIN_LANE': 0., 'TURNAROUND': math.pi,
+            'ALIGN_ENTRY_JUNCTION': edge_heading(entry_rung(room), 0.),
+            'ALIGN_SERVICE_LANE': edge_heading(service_edge(room), 0.),
+            'ALIGN_ENTRY': room.work_heading,
+            'ALIGN_AFTER_ENTRY': edge_heading(service_edge(room), 0.),
+            'ALIGN_EXIT': room.work_heading,
+            'ALIGN_AFTER_EXIT': edge_heading(service_edge(room), 0.),
+            'ALIGN_RETURN_JUNCTION': edge_heading(exit_rung(room), 0.),
+            'ALIGN_MAIN_LANE': edge_heading(next_main, 0.),
+            'TURNAROUND': edge_heading(HOME_EDGE, 0.),
         }
         heading_status = ''
         if self.state in turn_targets and self.fresh('/poses/transport_robot'):
@@ -331,9 +349,8 @@ class FourRoomController(DemoNode):
 
     def clear(self, room, side):
         x, y, _ = self.position('transport_robot')
-        # A door in the other row cannot overlap this robot.
         extension = sum(self.joints.get(n, 0.) for n in ('reach_1', 'reach_2', 'wand_x'))
-        return horizontal_door_clear(x, y, self.heading(), room.door_position(side)[1], extension)
+        return oriented_door_clear(x, y, self.heading(), room, side, extension)
 
     def door_status(self, name):
         position = self.joints.get(name)
@@ -491,7 +508,7 @@ class FourRoomController(DemoNode):
             elif self.now()-self.entered > self.param('state_timeout', 60.):
                 self.fault('State timed out: ' + self.state)
             elif self.started is not None and self.now()-self.started > self.param('mission_timeout', 600.):
-                self.fault('Eleven-glovebox mission timed out')
+                self.fault('Ten-glovebox mission timed out')
             elif self.state not in {'INITIAL_DETACH', 'INITIAL_ATTACH', 'HOME'}:
                 rx, ry, _ = self.position('transport_robot')
                 if self.attachment('carrier') != 'attached' or not placed(self.position('carrier'), (rx, ry, .154), .02, .012):
@@ -600,7 +617,7 @@ class FourRoomController(DemoNode):
                 self.transition('ALIGN_ENTRY_JUNCTION')
         elif s == 'ALIGN_ENTRY_JUNCTION':
             self.select(entry_rung(room))
-            if self.align(math.pi/2):
+            if self.align(edge_heading(entry_rung(room), 0.)):
                 self.consume_authorization()
                 self.transition('CROSS_ENTRY_JUNCTION')
         elif s == 'CROSS_ENTRY_JUNCTION':
@@ -610,13 +627,13 @@ class FourRoomController(DemoNode):
                 self.transition('ALIGN_SERVICE_LANE')
         elif s == 'ALIGN_SERVICE_LANE':
             self.select(exit_leg)
-            if self.align(0., tape=True):
+            if self.align(edge_heading(exit_leg, 0.), tape=True):
                 self.transition('TRAVEL_TO_ENTRY')
         elif s == 'TRAVEL_TO_ENTRY':
             if self.follow(exit_leg, room_stop(room, 'entry'), self.param('room_speed', .15)):
                 self.transition('ALIGN_ENTRY')
         elif s == 'ALIGN_ENTRY':
-            if self.align(DOOR_APPROACH_HEADING):
+            if self.align(room.work_heading):
                 self.transition('OPEN_ENTRY')
         elif s == 'OPEN_ENTRY':
             if not self.stopped():
@@ -653,7 +670,7 @@ class FourRoomController(DemoNode):
                     self.fault('Exit tag observed but ' + room.code +
                                ' has not delivered the processed wafer to its exit handoff')
         elif s == 'ALIGN_EXIT':
-            if self.align(DOOR_APPROACH_HEADING):
+            if self.align(room.work_heading):
                 self.transition('OPEN_EXIT')
         elif s in TRANSFER:
             self.transfer_step()
@@ -676,7 +693,7 @@ class FourRoomController(DemoNode):
                 self.transition('ALIGN_RETURN_JUNCTION')
         elif s == 'ALIGN_RETURN_JUNCTION':
             self.select(exit_rung(room))
-            if self.align(-math.pi/2):
+            if self.align(edge_heading(exit_rung(room), 0.)):
                 self.consume_authorization()
                 self.transition('CROSS_RETURN_JUNCTION')
         elif s == 'CROSS_RETURN_JUNCTION':
@@ -692,7 +709,7 @@ class FourRoomController(DemoNode):
                 # Select the next room's Track 1 leg, and advance the room
                 # index exactly once, on the tick the turn completes.
                 self.select(main_edge(ROOMS[self.index+1]))
-                if self.align(0.):
+                if self.align(edge_heading(main_edge(ROOMS[self.index+1]), 0.)):
                     self.index += 1
                     self.transition('APPROACH_ENTRY')
         elif s == 'RETURN_HOME':
@@ -702,7 +719,7 @@ class FourRoomController(DemoNode):
         elif s == 'TURNAROUND':
             # Measured 180 deg turn at the end of Track 1, then home on Track 1.
             self.select(HOME_EDGE)
-            if self.align(math.pi) and self.stopped():
+            if self.align(edge_heading(HOME_EDGE, 0.)) and self.stopped():
                 self.transition('HOME_RETURN')
         elif s == 'HOME_RETURN':
             if self.follow(HOME_EDGE, HOME_EDGE.length, self.param('route_speed', .20)):
@@ -715,7 +732,7 @@ class FourRoomController(DemoNode):
                          placed(self.position('wafer'), self.target_position('carrier'), .012, .008))
             if self.stable(supported):
                 self.transition('COMPLETE')
-                self.get_logger().info('TRANSPORT COMPLETE — wafer processed through all 11 gloveboxes')
+                self.get_logger().info('TRANSPORT COMPLETE — wafer processed through all 10 gloveboxes')
 
 
 def main(args=None):

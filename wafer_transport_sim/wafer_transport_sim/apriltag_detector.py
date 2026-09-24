@@ -9,8 +9,8 @@ from .common import DemoNode, run
 from .core import DetectionFilter
 
 
-TAG_CODES = {2*(room-1): f'GLOVEBOX_{room:02d}_ENTRY' for room in range(1, 12)}
-TAG_CODES.update({2*(room-1)+1: f'GLOVEBOX_{room:02d}_EXIT' for room in range(1, 12)})
+TAG_CODES = {2*(room-1): f'GLOVEBOX_{room:02d}_ENTRY' for room in range(1, 11)}
+TAG_CODES.update({2*(room-1)+1: f'GLOVEBOX_{room:02d}_EXIT' for room in range(1, 11)})
 
 
 def detected_codes(image):

@@ -1,6 +1,6 @@
 # Yahboom Raspbot V2 simulation model
 
-The eleven-glovebox demonstration uses a locally generated reconstruction of the
+The ten-glovebox U-layout demonstration uses a locally generated reconstruction of the
 Yahboom Raspbot V2 Standard Kit with Raspberry Pi 5. The stock robot envelope,
 wheelbase, weight, camera field of view, pan/tilt range, and motor speed come
 from Yahboom's product page and dimension drawing:

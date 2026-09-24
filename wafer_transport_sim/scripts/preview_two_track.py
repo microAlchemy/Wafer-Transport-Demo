@@ -17,8 +17,9 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wafer_transport_sim.four_room_layout import (ROOMS, ROOM_DEPTH, ROOM_LENGTH, START, PROCESS_STAGE_DEPTH,
-                                                  TRACK_1_Y, TRACK_2_Y, TURN_X, marker_pose)
+from wafer_transport_sim.four_room_layout import (ROOMS, ROOM_DEPTH, ROOM_LENGTH, START, FINISH,
+                                                  MAIN_PATH, SERVICE_PATH, PROCESS_STAGE_DEPTH,
+                                                  marker_pose)
 
 SCALE = 84            # pixels per metre
 FLOOR = '#f2f5f7'
@@ -52,9 +53,10 @@ def render(path=None, world_path=None, scale=SCALE):
     path = Path(path or DEFAULT)
     rectangles = drawn_rectangles(world_path)
     margin = .45
-    left, right = START[0]-margin, TURN_X+margin
-    bottom = TRACK_1_Y-.55
-    top = ROOMS[0].y+ROOM_DEPTH/2+margin
+    left = min(room.x-ROOM_LENGTH/2 for room in ROOMS)-1.
+    right = max(room.x+ROOM_LENGTH/2 for room in ROOMS)+1.
+    bottom = min(room.y-ROOM_LENGTH/2 for room in ROOMS)-1.
+    top = max(room.y+ROOM_LENGTH/2 for room in ROOMS)+1.
     width, height = int(round((right-left)*scale)), int(round((top-bottom)*scale))
 
     def point(x, y):
@@ -74,19 +76,19 @@ def render(path=None, world_path=None, scale=SCALE):
     for centre, yaw, length, thickness in rectangles['corridor']:
         rectangle(centre, yaw, length, thickness, CORRIDOR)
     for room in ROOMS:
-        rectangle((room.x, room.y), 0., ROOM_LENGTH, ROOM_DEPTH, GLASS)
+        rectangle((room.x, room.y), room.yaw, ROOM_LENGTH, ROOM_DEPTH, GLASS)
     for room in ROOMS:
-        rectangle((room.x, room.table[1]), 0., .22, PROCESS_STAGE_DEPTH, STAGE)
+        rectangle(room.table[:2], room.yaw, .22, PROCESS_STAGE_DEPTH, STAGE)
         for side in ('entry', 'exit'):
             sign_x, sign_y, _, _ = marker_pose(room, side)
-            rectangle((sign_x, sign_y), 0., .06, .20, SIGN)
+            rectangle((sign_x, sign_y), room.yaw, .06, .20, SIGN)
     for centre, yaw, length, thickness in rectangles['tape']:
         rectangle(centre, yaw, length, thickness, TAPE)
 
-    draw.text(point(START[0]-.42, TRACK_1_Y+.04), 'START', fill='#12303f')
-    draw.text(point(START[0]-.42, TRACK_2_Y+.20), 'TRACK 2  service lane', fill='#12303f')
-    draw.text(point(START[0]+.2, TRACK_1_Y-.20), 'TRACK 1  main lane', fill='#12303f')
-    draw.text(point(TURN_X-.60, TRACK_1_Y-.20), 'turnaround', fill='#12303f')
+    draw.text(point(START[0]-.40, START[1]-.22), 'START / HOME', fill='#12303f')
+    draw.text(point(FINISH[0]-.60, FINISH[1]-.22), 'turnaround', fill='#12303f')
+    draw.text(point(MAIN_PATH[1][0]+.08, MAIN_PATH[1][1]-.18), 'TRACK 1', fill='#12303f')
+    draw.text(point(SERVICE_PATH[1][0]+.08, SERVICE_PATH[1][1]-.18), 'TRACK 2', fill='#12303f')
     for room in ROOMS:
         draw.text(point(room.x-.34, room.y), f'GLOVEBOX {room.number:02d}', fill='#0d2233')
     path.parent.mkdir(parents=True, exist_ok=True)

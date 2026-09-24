@@ -1,13 +1,11 @@
-"""Shared geometry for the eleven-glovebox world and mission (metres, world frame).
+"""Shared geometry for the ten-glovebox U-shaped facility (metres).
 
 The facility dimensions, the process-cell transfer constants and the black-tape
 network live in one module so the world generator, the IR probe model, the
 transport controller and the tests cannot drift apart.
 
-The tape is a *network*, not a fixed all-room trajectory: two continuous
-straight lanes joined by transverse rungs.  Track 1 is the main lane farthest
-from the glovebox doors, Track 2 is the service lane beside them, and the
-route FSM selects one finite edge at a time.
+Two continuous U-shaped black-tape lanes surround the boxes.  Track 1 is the
+outer lane; Track 2 is the service lane.  AprilTags authorize each rung choice.
 """
 
 import math
@@ -19,7 +17,11 @@ class Room:
     number: int
     x: float
     y: float
-    direction: int
+    yaw: float
+
+    def local_to_world(self, dx, dy):
+        c, s = math.cos(self.yaw), math.sin(self.yaw)
+        return self.x+c*dx-s*dy, self.y+s*dx+c*dy
 
     @property
     def code(self):
@@ -27,28 +29,28 @@ class Room:
 
     @property
     def heading(self):
-        return 0.0
+        return self.yaw
 
     @property
     def work_heading(self):
-        return math.pi / 2
+        return self.yaw + math.pi / 2
 
     @property
     def route_y(self):
-        return self.y - HALF_DEPTH - CORRIDOR_WIDTH / 2
+        return self.lane_point(0., 2)[1]
 
     @property
     def table(self):
         """Blue process stage in the middle of the room."""
-        return self.x, self.y - HALF_DEPTH + HANDOFF_SETBACK, SUPPORTED_WAFER_Z
+        return (*self.local_to_world(0., -HALF_DEPTH+HANDOFF_SETBACK), SUPPORTED_WAFER_Z)
 
     def handoff(self, side):
         """Wafer support just inside the entry or exit guillotine door."""
         offset = -HANDOFF_OFFSET if side == 'entry' else HANDOFF_OFFSET
-        return self.x + offset, self.y - HALF_DEPTH + HANDOFF_SETBACK, SUPPORTED_WAFER_Z
+        return (*self.local_to_world(offset, -HALF_DEPTH+HANDOFF_SETBACK), SUPPORTED_WAFER_Z)
 
     def handoff_heading(self, side):
-        return math.pi / 2
+        return self.work_heading
 
     def process_joint(self, axis):
         return f"room_{self.number}_process_{axis}"
@@ -60,10 +62,18 @@ class Room:
         return f"GLOVEBOX_{self.number:02d}_{side.upper()}"
 
     def door_x(self, side):
-        return self.x + (-HANDOFF_OFFSET if side == 'entry' else HANDOFF_OFFSET)
+        return self.door_position(side)[0]
 
     def door_position(self, side):
-        return self.door_x(side), self.y-HALF_DEPTH
+        offset = -HANDOFF_OFFSET if side == 'entry' else HANDOFF_OFFSET
+        return self.local_to_world(offset, -HALF_DEPTH)
+
+    def lane_point(self, along, track):
+        # Leave 8 mm beyond the nominal half corridor at the door: the robot's
+        # front collision box then clears the 12 mm guillotine panel after an
+        # in-place turn while wand reach stays below its 269 mm stroke.
+        outward = CORRIDOR_WIDTH/2 + DOOR_CLEARANCE + (CORRIDOR_WIDTH if track == 1 else 0.)
+        return self.local_to_world(along, -HALF_DEPTH-outward)
 
     def door_joint(self, side):
         return f"room_{self.number}_{side}_z"
@@ -110,16 +120,32 @@ ROOM_LENGTH = 1.2192
 ROOM_DEPTH = 0.9144
 ROOM_HEIGHT = 1.2192
 CORRIDOR_WIDTH = 0.3048
+DOOR_CLEARANCE = .008
 HALF_LENGTH = ROOM_LENGTH / 2
 HALF_DEPTH = ROOM_DEPTH / 2
 
 SPACING = ROOM_LENGTH + CORRIDOR_WIDTH
-ROOMS = tuple(Room(i+1, (i-5)*SPACING, .70, 1) for i in range(11))
+# Four along the top, two down the left, four along the bottom.  The local
+# positive X axis is the direction of travel past each pair of doors.
+ROOMS = tuple(
+    [Room(i+1, x, 2.30, math.pi) for i, x in enumerate((2.286, .762, -.762, -2.286))] +
+    [Room(5, -3.6576, .9144, -math.pi/2), Room(6, -3.6576, -.9144, -math.pi/2)] +
+    [Room(i+7, x, -2.30, 0.) for i, x in enumerate((-2.286, -.762, .762, 2.286))]
+)
 
 ROOM_CODES = tuple(room.code for room in ROOMS)
 
-MAIN_Y = ROOMS[0].route_y-CORRIDOR_WIDTH
-START = (ROOMS[0].x-HALF_LENGTH-.35, MAIN_Y)
+TOP_MAIN_Y = ROOMS[0].lane_point(0., 1)[1]
+TOP_SERVICE_Y = ROOMS[0].lane_point(0., 2)[1]
+LEFT_MAIN_X = ROOMS[4].lane_point(0., 1)[0]
+LEFT_SERVICE_X = ROOMS[4].lane_point(0., 2)[0]
+BOTTOM_MAIN_Y = ROOMS[-1].lane_point(0., 1)[1]
+BOTTOM_SERVICE_Y = ROOMS[-1].lane_point(0., 2)[1]
+START = (ROOMS[0].x+HALF_LENGTH+.35, TOP_MAIN_Y)
+FINISH = (ROOMS[-1].x+HALF_LENGTH+.35, BOTTOM_MAIN_Y)
+MAIN_PATH = (START, (LEFT_MAIN_X, TOP_MAIN_Y), (LEFT_MAIN_X, BOTTOM_MAIN_Y), FINISH)
+SERVICE_PATH = ((START[0], TOP_SERVICE_Y), (LEFT_SERVICE_X, TOP_SERVICE_Y),
+                (LEFT_SERVICE_X, BOTTOM_SERVICE_Y), (FINISH[0], BOTTOM_SERVICE_Y))
 
 
 # ---------------------------------------------------------------------------
@@ -133,28 +159,28 @@ START = (ROOMS[0].x-HALF_LENGTH-.35, MAIN_Y)
 # the robot never sweeps a door leaf or a box corner while it turns.
 # ---------------------------------------------------------------------------
 
-TRACK_1_Y = MAIN_Y
-TRACK_2_Y = ROOMS[0].route_y
-LANE_PITCH = TRACK_2_Y - TRACK_1_Y
+TRACK_1_Y = TOP_MAIN_Y  # compatibility for the first (top) leg
+TRACK_2_Y = TOP_SERVICE_Y
+LANE_PITCH = CORRIDOR_WIDTH
 JUNCTION_OFFSET = .45
 DECISION_OFFSET = .20
 MARKER_LEAD = .25
 MARKER_LATERAL = .105
 MARKER_HEIGHT = .27
 MARKER_SIZE = .20
-TURN_X = ROOMS[-1].x + HALF_LENGTH + .35
+TURN_X = FINISH[0]
 # Both guillotine doors sit in the +y front wall, so the stop that faces a door
 # is square to the wall.  Aligning to this heading instead of a slightly
 # off-axis handoff keeps the extended wand envelope clear of the closed leaf.
-DOOR_APPROACH_HEADING = math.pi/2
+DOOR_APPROACH_HEADING = ROOMS[0].work_heading
 
 
 def entry_junction_x(room):
-    return room.x - JUNCTION_OFFSET
+    return room.lane_point(-JUNCTION_OFFSET, 1)[0]
 
 
 def exit_junction_x(room):
-    return room.x + JUNCTION_OFFSET
+    return room.lane_point(JUNCTION_OFFSET, 1)[0]
 
 
 @dataclass(frozen=True)
@@ -236,6 +262,25 @@ def _edge(name, kind, track, start, end, *points):
     return Edge(name, kind, track, start, end, tuple(points))
 
 
+def polyline_slice(points, start, end):
+    """Cut a monotone edge from a continuous track, retaining its corners."""
+    assert 0 <= start < end <= polyline_length(points)+1e-8
+    result = [polyline_point(points, start)]
+    traversed = 0.
+    for a, b in zip(points, points[1:]):
+        traversed += math.dist(a, b)
+        if start+1e-8 < traversed < end-1e-8:
+            result.append(b)
+    result.append(polyline_point(points, end))
+    return tuple(result)
+
+
+def lane_distance(path, point):
+    along, deviation = polyline_project(path, *point)
+    assert deviation < 1e-6, (point, deviation)
+    return along
+
+
 EDGES = {}
 
 
@@ -244,46 +289,47 @@ def _register(edge):
     return edge
 
 
-MAIN_EDGES = []      # Track 1 approach legs, one per glovebox
-SERVICE_EDGES = []   # Track 2 legs, one per glovebox
-ENTRY_RUNGS = []     # main -> service
-EXIT_RUNGS = []      # service -> main
-
-_previous_x = START[0]
+MAIN_EDGES = []
+SERVICE_EDGES = []
+ENTRY_RUNGS = []
+EXIT_RUNGS = []
+_previous = 0.
 for _room in ROOMS:
-    _entry_x, _exit_x = entry_junction_x(_room), exit_junction_x(_room)
-    MAIN_EDGES.append(_register(_edge(
-        f'main_{_room.number:02d}', 'main', 'TRACK_1', f'main_before_{_room.number:02d}',
-        f'main_junction_{_room.number:02d}',
-        (_previous_x, TRACK_1_Y), (_entry_x, TRACK_1_Y))))
-    _previous_x = _exit_x
+    _in_main = _room.lane_point(-JUNCTION_OFFSET, 1)
+    _out_main = _room.lane_point(JUNCTION_OFFSET, 1)
+    _in_service = _room.lane_point(-JUNCTION_OFFSET, 2)
+    _out_service = _room.lane_point(JUNCTION_OFFSET, 2)
+    _entry_distance = lane_distance(MAIN_PATH, _in_main)
+    _exit_distance = lane_distance(MAIN_PATH, _out_main)
+    MAIN_EDGES.append(_register(Edge(
+        f'main_{_room.number:02d}', 'main', 'TRACK_1',
+        f'main_before_{_room.number:02d}', f'main_junction_{_room.number:02d}',
+        polyline_slice(MAIN_PATH, _previous, _entry_distance))))
+    _previous = _exit_distance
     ENTRY_RUNGS.append(_register(_edge(
-        f'rung_in_{_room.number:02d}', 'rung_in', 'TRACK_2', f'main_junction_{_room.number:02d}',
-        f'service_junction_{_room.number:02d}', (_entry_x, TRACK_1_Y), (_entry_x, TRACK_2_Y))))
+        f'rung_in_{_room.number:02d}', 'rung_in', 'TRACK_2',
+        f'main_junction_{_room.number:02d}', f'service_junction_{_room.number:02d}',
+        _in_main, _in_service)))
     SERVICE_EDGES.append(_register(_edge(
-        f'service_{_room.number:02d}', 'service', 'TRACK_2', f'service_junction_{_room.number:02d}',
-        f'service_return_{_room.number:02d}', (_entry_x, TRACK_2_Y), (_exit_x, TRACK_2_Y))))
+        f'service_{_room.number:02d}', 'service', 'TRACK_2',
+        f'service_junction_{_room.number:02d}', f'service_return_{_room.number:02d}',
+        _in_service, _out_service)))
     EXIT_RUNGS.append(_register(_edge(
-        f'rung_out_{_room.number:02d}', 'rung_out', 'TRACK_1', f'service_return_{_room.number:02d}',
-        f'main_return_{_room.number:02d}', (_exit_x, TRACK_2_Y), (_exit_x, TRACK_1_Y))))
+        f'rung_out_{_room.number:02d}', 'rung_out', 'TRACK_1',
+        f'service_return_{_room.number:02d}', f'main_return_{_room.number:02d}',
+        _out_service, _out_main)))
 
-TAIL_EDGE = _register(_edge('main_tail', 'main', 'TRACK_1', 'main_return_11', 'turnaround',
-                            (_previous_x, TRACK_1_Y), (TURN_X, TRACK_1_Y)))
-HOME_EDGE = _register(_edge('main_home', 'main', 'TRACK_1', 'turnaround', 'home',
-                            (TURN_X, TRACK_1_Y), (START[0], TRACK_1_Y)))
+TAIL_EDGE = _register(Edge('main_tail', 'main', 'TRACK_1', 'main_return_10',
+                           'turnaround', polyline_slice(MAIN_PATH, _previous,
+                                                        polyline_length(MAIN_PATH))))
+HOME_EDGE = _register(Edge('main_home', 'main', 'TRACK_1', 'turnaround',
+                           'home', tuple(reversed(MAIN_PATH))))
 
-# Physical black tape, used by the world generator and the IR probe model.
-TAPE_SEGMENTS = (
-    ((START[0], TRACK_1_Y), (TURN_X, TRACK_1_Y)),
-    ((entry_junction_x(ROOMS[0]), TRACK_2_Y), (exit_junction_x(ROOMS[-1]), TRACK_2_Y)),
-    *[((entry_junction_x(room), TRACK_1_Y), (entry_junction_x(room), TRACK_2_Y))
-      for room in ROOMS],
-    *[((exit_junction_x(room), TRACK_1_Y), (exit_junction_x(room), TRACK_2_Y))
-      for room in ROOMS],
-)
-
-# Legacy plot helper: the continuous Track 1 polyline.
-PATH = ((START[0], TRACK_1_Y), (TURN_X, TRACK_1_Y))
+# Every segment is real black tape. The return reuses Track 1.
+TAPE_SEGMENTS = tuple(zip(MAIN_PATH, MAIN_PATH[1:])) + \
+    tuple(zip(SERVICE_PATH, SERVICE_PATH[1:])) + \
+    tuple((edge.points[0], edge.points[-1]) for edge in (*ENTRY_RUNGS, *EXIT_RUNGS))
+PATH = MAIN_PATH
 
 
 def edge_project(edge, x, y):
@@ -329,42 +375,34 @@ def entry_decision_stop(room):
 
 
 def room_stop(room, phase):
-    """
-    Return a service-lane stop distance near a room door location.
-
-    Entry/exit targets remain outside the enclosure instead of placing
-    the main transport robot directly on the wall.
-    """
-
-    if phase in ('entry', 'exit'):
-        return room.door_x(phase)-entry_junction_x(room)
-    return room.x-entry_junction_x(room)
+    """Along-service distance to the door; the robot remains outside."""
+    if phase == 'entry':
+        return JUNCTION_OFFSET-HANDOFF_OFFSET
+    if phase == 'exit':
+        return JUNCTION_OFFSET+HANDOFF_OFFSET
+    return JUNCTION_OFFSET
 
 
 def marker_pose(room, side):
-    """World pose of the AprilTag sign the forward camera must read."""
-
-    if side == 'entry':
-        junction = entry_junction_x(room)
-        across = TRACK_1_Y+MARKER_LATERAL
-    else:
-        junction = exit_junction_x(room)
-        across = TRACK_2_Y+MARKER_LATERAL
-    return junction+MARKER_LEAD, across, MARKER_HEIGHT, math.pi
+    """AprilTag facing an approaching robot on its selected track."""
+    along = (-JUNCTION_OFFSET if side == 'entry' else JUNCTION_OFFSET) + MARKER_LEAD
+    track = 1 if side == 'entry' else 2
+    # Positive local Y points into the room, toward the camera's left on
+    # the top and bottom legs after applying the room rotation.
+    x, y = room.lane_point(along, track)
+    x -= MARKER_LATERAL*math.sin(room.yaw)
+    y += MARKER_LATERAL*math.cos(room.yaw)
+    return x, y, MARKER_HEIGHT, room.yaw+math.pi
 
 
 def tag_decision_stop(room, side):
-    """Pose where the FSM reads (entry/exit) tag: (x, y, heading)."""
-
-    if side == 'entry':
-        edge = main_edge(room)
-        return (*edge_point(edge, entry_decision_stop(room)), 0.)
-    edge = service_edge(room)
-    return (*edge_point(edge, room_stop(room, 'exit')), 0.)
+    edge = main_edge(room) if side == 'entry' else service_edge(room)
+    distance = entry_decision_stop(room) if side == 'entry' else room_stop(room, 'exit')
+    return (*edge_point(edge, distance), edge_heading(edge, distance))
 
 
 def route_plan():
-    """Ordered selected edges of the full eleven-glovebox mission."""
+    """Ordered selected edges of the full ten-glovebox mission."""
 
     plan = []
     for room in ROOMS:
@@ -397,3 +435,16 @@ def horizontal_door_clear(x, y, heading, door_y, extension=0.0):
     ys = [y + a*math.sin(heading) + b*math.cos(heading)
           for a in (-.105, max(.145, extension+.016)) for b in (-.09, .09)]
     return max(ys) < door_y-.005 or min(ys) > door_y+.005
+
+
+def oriented_door_clear(x, y, heading, room, side, extension=0.0):
+    """Check the whole robot and wand against a room's rotated door plane."""
+    dx, dy = room.door_position(side)
+    inward = (-math.sin(room.yaw), math.cos(room.yaw))
+    signed = []
+    for forward in (-.105, max(.145, extension+.016)):
+        for lateral in (-.09, .09):
+            px = x+forward*math.cos(heading)-lateral*math.sin(heading)
+            py = y+forward*math.sin(heading)+lateral*math.cos(heading)
+            signed.append((px-dx)*inward[0]+(py-dy)*inward[1])
+    return max(signed) < -.001 or min(signed) > .001

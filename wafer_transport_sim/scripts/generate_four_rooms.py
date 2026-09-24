@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the eleven-glovebox aerial layout and tagged tape route."""
+"""Generate the ten-glovebox U-shaped aerial layout and tagged tape route."""
 import math
 from pathlib import Path
 import sys
@@ -46,8 +46,7 @@ def generate():
     floor = el(world, 'model', name='loop_floor')
     el(floor, 'static', 'true')
     body = link(floor, 'structure')
-    floor_length = ROOM_LENGTH*11+CORRIDOR_WIDTH*12+.8
-    solid(body, 'floor', (floor_length, 2.8, .03), (0, .05, -.015), color=WHITE)
+    solid(body, 'floor', (10.0, 8.0, .03), (-.65, 0., -.015), color=WHITE)
     for i, (a, b) in enumerate(TAPE_SEGMENTS):
         length = math.dist(a, b)
         if length < 1e-8:
@@ -109,7 +108,7 @@ def generate():
         state = plugin(model, 'joint-state-publisher', 'JointStatePublisher')
         el(state, 'topic', f'/process/room_{room.number}/joint_states')
         save_model(name, root)
-        include(name, (room.x, room.handoff('entry')[1], 0.))
+        include(name, (*room.local_to_world(0., -ROOM_DEPTH/2+.10), 0.), heading=room.yaw)
         for topic, ros_type, gz_type, direction_name in [
                 ('/actuators/'+x_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
                 ('/actuators/'+z_name, 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
@@ -127,23 +126,27 @@ def generate():
         model = el(world, 'model', name=f'room_{room.number}')
         el(model, 'static', 'true')
         structure = link(model, 'structure')
-        ymin, ymax = room.y-ROOM_DEPTH/2, room.y+ROOM_DEPTH/2
-        cy = (ymin+ymax)/2
-        # Roof omitted for a clear view of the robot, wand and wafer.
-        solid(structure, 'glass_back', (ROOM_LENGTH, .012, ROOM_HEIGHT),
-              (room.x, ymax, ROOM_HEIGHT/2),
-              color='.5 .75 .9 1', transparency=.82)
-        xmin, xmax = room.x-ROOM_LENGTH/2, room.x+ROOM_LENGTH/2
-        for wall_x, wall_name in ((xmin, 'left'), (xmax, 'right')):
-            solid(structure, f'glass_{wall_name}', (.012, ROOM_DEPTH, ROOM_HEIGHT),
-                  (wall_x, room.y, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.82)
+        def local_solid(name, size, x, y, z, **kwargs):
+            px, py = room.local_to_world(x, y)
+            solid(structure, name, size, (px, py, z), rpy=(0, 0, room.yaw), **kwargs)
+
+        # All structure is constructed in the room frame, then rotated into
+        # the top, left, or bottom run of the aerial U.
+        local_solid('glass_back', (ROOM_LENGTH, .012, ROOM_HEIGHT),
+                    0., ROOM_DEPTH/2, ROOM_HEIGHT/2,
+                    color='.5 .75 .9 1', transparency=.82)
+        for wall_x, wall_name in ((-ROOM_LENGTH/2, 'left'), (ROOM_LENGTH/2, 'right')):
+            local_solid(f'glass_{wall_name}', (.012, ROOM_DEPTH, ROOM_HEIGHT),
+                        wall_x, 0., ROOM_HEIGHT/2,
+                        color='.5 .75 .9 1', transparency=.82)
         opening = CORRIDOR_WIDTH
-        entry_x, exit_x = room.door_x('entry'), room.door_x('exit')
-        for i, (lo, hi) in enumerate(((xmin, entry_x-opening/2),
+        entry_x, exit_x = -.22, .22
+        for i, (lo, hi) in enumerate(((-ROOM_LENGTH/2, entry_x-opening/2),
                                       (entry_x+opening/2, exit_x-opening/2),
-                                      (exit_x+opening/2, xmax))):
-            solid(structure, f'glass_front_{i}', (hi-lo, .012, ROOM_HEIGHT),
-                  ((lo+hi)/2, ymin, ROOM_HEIGHT/2), color='.5 .75 .9 1', transparency=.82)
+                                      (exit_x+opening/2, ROOM_LENGTH/2))):
+            local_solid(f'glass_front_{i}', (hi-lo, .012, ROOM_HEIGHT),
+                        (lo+hi)/2, -ROOM_DEPTH/2, ROOM_HEIGHT/2,
+                        color='.5 .75 .9 1', transparency=.82)
         for side in ('entry', 'exit'):
             x, door_y = room.door_position(side)
             name = f'room_{room.number}_{side}_door'
@@ -178,20 +181,20 @@ def generate():
                     element.findtext('geometry/box/size').split()[0] +
                     f' {CORRIDOR_WIDTH} ' + element.findtext('geometry/box/size').split()[2])
             save_model(name, door)
-            include(name, (x+center, door_y, 0.), heading=math.pi/2)
+            include(name, (x+center*math.cos(room.yaw),
+                           door_y+center*math.sin(room.yaw), 0.),
+                    heading=room.yaw+math.pi/2)
             for topic, ros_type, gz_type, direction in [
                     (ctrl.findtext('topic'), 'std_msgs/msg/Float64', 'gz.msgs.Double', 'ROS_TO_GZ'),
                     (feedback, 'sensor_msgs/msg/JointState', 'gz.msgs.Model', 'GZ_TO_ROS')]:
                 mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
                                      ros_type_name=ros_type, gz_type_name=gz_type, direction=direction))
-        tx, ty, _ = room.table
-        solid(structure, 'process_stage', (.22, PROCESS_STAGE_DEPTH, SUPPORT_TOP), (tx, ty, SUPPORT_TOP/2), color=BLUE)
-        for side in ('entry', 'exit'):
-            hx, hy, _ = room.handoff(side)
-            solid(structure, f'{side}_handoff', (.16, .16, SUPPORT_TOP),
-                  (hx, hy, SUPPORT_TOP/2), color=SILVER)
-        solid(structure, 'equipment', (.28, .12, .28),
-              (room.x-.27*room.direction, cy+.25*room.direction, .14), color=SILVER)
+        local_solid('process_stage', (.22, PROCESS_STAGE_DEPTH, SUPPORT_TOP),
+                    0., -ROOM_DEPTH/2+.10, SUPPORT_TOP/2, color=BLUE)
+        for side, offset in (('entry', -.22), ('exit', .22)):
+            local_solid(f'{side}_handoff', (.16, .16, SUPPORT_TOP),
+                        offset, -ROOM_DEPTH/2+.10, SUPPORT_TOP/2, color=SILVER)
+        local_solid('equipment', (.28, .12, .28), -.27, .25, .14, color=SILVER)
         dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_APRILTAG_36h11)
         for side, tag_id in (('entry', 2*(room.number-1)), ('exit', 2*(room.number-1)+1)):
             marker = cv2.aruco.generateImageMarker(dictionary, tag_id, 360)
@@ -210,12 +213,14 @@ def generate():
                            (sign_x, sign_y, sign_z), (0, 0, normal),
                            texture_prefix='../textures/')
         textured_plane(structure, 'room_label', f'room_{room.number}_label.png', .70, .10,
-                       (room.x, ymin-.009, .98), (0, 0, -math.pi/2), texture_prefix='../textures/')
+                       (*room.local_to_world(0., -ROOM_DEPTH/2-.009), .98),
+                       (0, 0, room.yaw-math.pi/2), texture_prefix='../textures/')
         textured_plane(structure, 'microalchemy_logo', 'microalchemy_logo.png', .30, .15,
-                       (room.x, ymax+.01, .55), (0, 0, 0), texture_prefix='../textures/')
+                       (*room.local_to_world(0., ROOM_DEPTH/2+.01), .55),
+                       (0, 0, room.yaw), texture_prefix='../textures/')
         process_robot(room)
     generate_raspbot()
-    include('transport_robot', (*START, 0.), resource='raspbot_v2')
+    include('transport_robot', (*START, 0.), heading=ROOMS[0].yaw, resource='raspbot_v2')
     for joint_name in ('camera_pan', 'camera_tilt'):
         topic = '/actuators/' + joint_name
         mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
@@ -227,7 +232,7 @@ def generate():
     view = el(gui, 'plugin', filename='MinimalScene', name='3D View')
     el(view, 'engine', 'ogre2')
     el(view, 'scene', 'scene')
-    el(view, 'camera_pose', '0 -9.0 12.5 0 1.05 1.5708')
+    el(view, 'camera_pose', '-.6 -7.5 11.0 0 1.0 1.5708')
     for filename, name in [('GzSceneManager', 'Scene Manager'),
                            ('InteractiveViewControl', 'View Control'), ('CameraTracking', 'Camera Tracking')]:
         el(gui, 'plugin', filename=filename, name=name)
