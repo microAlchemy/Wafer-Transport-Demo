@@ -73,8 +73,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.86 .90 .94 1</ambient>
+            <diffuse>.86 .90 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_0">
@@ -97,8 +97,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.86 .90 .94 1</ambient>
+            <diffuse>.86 .90 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_1">
@@ -121,8 +121,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.86 .90 .94 1</ambient>
+            <diffuse>.86 .90 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_2">
@@ -145,8 +145,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.72 .83 .94 1</ambient>
+            <diffuse>.72 .83 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_3">
@@ -169,8 +169,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.72 .83 .94 1</ambient>
+            <diffuse>.72 .83 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_4">
@@ -193,8 +193,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.72 .83 .94 1</ambient>
+            <diffuse>.72 .83 .94 1</diffuse>
           </material>
         </visual>
         <visual name="tape_5">
@@ -217,8 +217,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_6">
@@ -241,8 +241,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_7">
@@ -265,8 +265,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_8">
@@ -289,8 +289,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_9">
@@ -313,8 +313,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_10">
@@ -337,8 +337,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_11">
@@ -361,8 +361,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_12">
@@ -385,8 +385,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_13">
@@ -409,8 +409,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_14">
@@ -433,8 +433,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_15">
@@ -457,8 +457,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_16">
@@ -481,8 +481,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_17">
@@ -505,8 +505,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_18">
@@ -529,8 +529,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_19">
@@ -553,8 +553,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_20">
@@ -577,8 +577,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_21">
@@ -601,8 +601,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_22">
@@ -625,8 +625,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_23">
@@ -649,8 +649,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_24">
@@ -673,8 +673,8 @@
             </box>
           </geometry>
           <material>
-            <ambient>.72 .75 .77 1</ambient>
-            <diffuse>.72 .75 .77 1</diffuse>
+            <ambient>.78 .84 .89 1</ambient>
+            <diffuse>.78 .84 .89 1</diffuse>
           </material>
         </visual>
         <visual name="tape_25">
@@ -689,6 +689,650 @@
             <diffuse>.005 .005 .005 1</diffuse>
           </material>
         </visual>
+        <visual name="steel_divider_0">
+          <pose>3.1008000000000004 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.28959999999999964 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_0_collision">
+          <pose>3.1008000000000004 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.28959999999999964 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_1">
+          <pose>2.286 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.45999999999999996 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_1_collision">
+          <pose>2.286 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.45999999999999996 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_2">
+          <pose>1.5240000000000002 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000016 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_2_collision">
+          <pose>1.5240000000000002 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000016 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_3">
+          <pose>0.7620000000000002 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_3_collision">
+          <pose>0.7620000000000002 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_4">
+          <pose>2.220446049250313e-16 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18399999999999972 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_4_collision">
+          <pose>2.220446049250313e-16 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18399999999999972 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_5">
+          <pose>-0.7619999999999998 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_5_collision">
+          <pose>-0.7619999999999998 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_6">
+          <pose>-1.5239999999999996 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000105 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_6_collision">
+          <pose>-1.5239999999999996 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000105 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_7">
+          <pose>-2.286 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_7_collision">
+          <pose>-2.286 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_8">
+          <pose>-3.6937999999999995 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.4755999999999996 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_8_collision">
+          <pose>-3.6937999999999995 3.074 0.32 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.4755999999999996 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_9">
+          <pose>-4.4315999999999995 2.3292 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.4895999999999994 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_9_collision">
+          <pose>-4.4315999999999995 2.3292 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.4895999999999994 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_10">
+          <pose>-4.4315999999999995 0.9143999999999997 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999991 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_10_collision">
+          <pose>-4.4315999999999995 0.9143999999999997 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999991 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_11">
+          <pose>-4.4315999999999995 0.0 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4887999999999977 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_11_collision">
+          <pose>-4.4315999999999995 0.0 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4887999999999977 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_12">
+          <pose>-4.4315999999999995 -0.9143999999999994 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_12_collision">
+          <pose>-4.4315999999999995 -0.9143999999999994 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>0.4599999999999995 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_13">
+          <pose>-4.4315999999999995 -2.3292 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.4895999999999994 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_13_collision">
+          <pose>-4.4315999999999995 -2.3292 0.32 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.4895999999999994 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_14">
+          <pose>-3.6938000000000004 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.4755999999999982 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_14_collision">
+          <pose>-3.6938000000000004 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.4755999999999982 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_15">
+          <pose>-2.2859999999999987 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000263 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_15_collision">
+          <pose>-2.2859999999999987 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000263 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_16">
+          <pose>-1.5239999999999991 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000105 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_16_collision">
+          <pose>-1.5239999999999991 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.18400000000000105 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_17">
+          <pose>-0.7620000000000005 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_17_collision">
+          <pose>-0.7620000000000005 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_18">
+          <pose>0.0 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.1840000000000046 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_18_collision">
+          <pose>0.0 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.1840000000000046 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_19">
+          <pose>0.7620000000000005 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_19_collision">
+          <pose>0.7620000000000005 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_20">
+          <pose>1.524000000000001 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.1840000000000046 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_20_collision">
+          <pose>1.524000000000001 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.1840000000000046 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_21">
+          <pose>2.2860000000000014 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_21_collision">
+          <pose>2.2860000000000014 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.46000000000000085 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="steel_divider_22">
+          <pose>3.1007999999999996 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.2896000000000001 0.012 0.64</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
+          </material>
+        </visual>
+        <collision name="steel_divider_22_collision">
+          <pose>3.1007999999999996 -3.074 0.32 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.2896000000000001 0.012 0.64</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
         <visual name="loading_rail_-0.054">
           <pose>3.2456 3.1684 0.142 0 0 0</pose>
           <geometry>
@@ -701,22 +1345,6 @@
             <diffuse>0.65 0.72 0.78 1</diffuse>
           </material>
         </visual>
-        <collision name="loading_rail_-0.054_collision">
-          <pose>3.2456 3.1684 0.142 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>0.15 0.016 0.008</size>
-            </box>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.9</mu>
-                <mu2>0.9</mu2>
-              </ode>
-            </friction>
-          </surface>
-        </collision>
         <visual name="loading_rail_0.054">
           <pose>3.2456 3.2763999999999998 0.142 0 0 0</pose>
           <geometry>
@@ -729,22 +1357,6 @@
             <diffuse>0.65 0.72 0.78 1</diffuse>
           </material>
         </visual>
-        <collision name="loading_rail_0.054_collision">
-          <pose>3.2456 3.2763999999999998 0.142 0 0 0</pose>
-          <geometry>
-            <box>
-              <size>0.15 0.016 0.008</size>
-            </box>
-          </geometry>
-          <surface>
-            <friction>
-              <ode>
-                <mu>0.9</mu>
-                <mu2>0.9</mu2>
-              </ode>
-            </friction>
-          </surface>
-        </collision>
       </link>
     </model>
     <model name="room_1">
@@ -762,7 +1374,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>2.286 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -770,12 +1382,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>2.286 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -791,7 +1402,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>2.8956 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -799,12 +1410,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>2.8956 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -820,7 +1430,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>1.6764000000000001 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -828,12 +1438,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>1.6764000000000001 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -849,7 +1458,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>2.777 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -857,12 +1466,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>2.777 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -878,7 +1486,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>2.286 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -886,12 +1494,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>2.286 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -907,7 +1514,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>1.795 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -915,16 +1522,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>1.795 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>2.286 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>2.286 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -1168,7 +1802,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>0.7619999999999999 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1176,12 +1810,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>0.7619999999999999 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1197,7 +1830,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>1.3716 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1205,12 +1838,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>1.3716 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1226,7 +1858,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>0.15239999999999998 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1234,12 +1866,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>0.15239999999999998 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1255,7 +1886,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>1.2530000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1263,12 +1894,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>1.2530000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1284,7 +1914,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>0.7620000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1292,12 +1922,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>0.7620000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1313,7 +1942,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>0.2710000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1321,16 +1950,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>0.2710000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>0.762 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>0.762 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -1574,7 +2230,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-0.7620000000000001 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1582,12 +2238,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-0.7620000000000001 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1603,7 +2258,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-0.15239999999999998 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1611,12 +2266,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-0.15239999999999998 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1632,7 +2286,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-1.3716 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1640,12 +2294,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-1.3716 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1661,7 +2314,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-0.27099999999999996 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1669,12 +2322,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-0.27099999999999996 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1690,7 +2342,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-0.7619999999999999 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1698,12 +2350,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-0.7619999999999999 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1719,7 +2370,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-1.2530000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1727,16 +2378,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-1.2530000000000001 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-0.762 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-0.762 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -1980,7 +2658,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-2.286 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -1988,12 +2666,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-2.286 1.8427999999999998 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2009,7 +2686,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-1.6764000000000001 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2017,12 +2694,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-1.6764000000000001 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2038,7 +2714,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-2.8956 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2046,12 +2722,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-2.8956 2.3 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2067,7 +2742,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-1.795 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2075,12 +2750,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-1.795 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2096,7 +2770,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-2.286 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2104,12 +2778,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-2.286 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2125,7 +2798,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-2.777 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
@@ -2133,16 +2806,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-2.777 2.7571999999999997 0.6096 0 0 3.141592653589793</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-2.286 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-2.286 2.3 1.2112 0 0 3.141592653589793</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -2386,7 +3086,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-3.2004 0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2394,12 +3094,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-3.2004 0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2415,7 +3114,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-3.6576 1.524 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2423,12 +3122,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-3.6576 1.524 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2444,7 +3142,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-3.6576 0.30479999999999996 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2452,12 +3150,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-3.6576 0.30479999999999996 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2473,7 +3170,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-4.1148 1.4054 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2481,12 +3178,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-4.1148 1.4054 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2502,7 +3198,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-4.1148 0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2510,12 +3206,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-4.1148 0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2531,7 +3226,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-4.1148 0.42339999999999994 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2539,16 +3234,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-4.1148 0.42339999999999994 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-3.6576 0.9144 1.2112 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-3.6576 0.9144 1.2112 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -2792,7 +3514,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-3.2004 -0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2800,12 +3522,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-3.2004 -0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2821,7 +3542,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-3.6576 -0.30479999999999996 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2829,12 +3550,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-3.6576 -0.30479999999999996 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2850,7 +3570,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-3.6576 -1.524 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2858,12 +3578,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-3.6576 -1.524 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2879,7 +3598,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-4.1148 -0.42340000000000005 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2887,12 +3606,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-4.1148 -0.42340000000000005 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2908,7 +3626,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-4.1148 -0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2916,12 +3634,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-4.1148 -0.9144 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2937,7 +3654,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-4.1148 -1.4054 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
@@ -2945,16 +3662,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-4.1148 -1.4054 0.6096 0 0 -1.5707963267948966</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-3.6576 -0.9144 1.2112 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-3.6576 -0.9144 1.2112 0 0 -1.5707963267948966</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -3198,7 +3942,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-2.286 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3206,12 +3950,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-2.286 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3227,7 +3970,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-2.8956 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3235,12 +3978,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-2.8956 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3256,7 +3998,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-1.6764000000000001 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3264,12 +4006,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-1.6764000000000001 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3285,7 +4026,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-2.777 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3293,12 +4034,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-2.777 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3314,7 +4054,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-2.286 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3322,12 +4062,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-2.286 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3343,7 +4082,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-1.795 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3351,16 +4090,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-1.795 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-2.286 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-2.286 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -3604,7 +4370,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>-0.762 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3612,12 +4378,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>-0.762 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3633,7 +4398,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>-1.3716 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3641,12 +4406,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>-1.3716 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3662,7 +4426,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>-0.15239999999999998 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3670,12 +4434,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>-0.15239999999999998 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3691,7 +4454,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>-1.2530000000000001 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3699,12 +4462,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>-1.2530000000000001 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3720,7 +4482,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>-0.762 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3728,12 +4490,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>-0.762 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3749,7 +4510,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>-0.271 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -3757,16 +4518,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>-0.271 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>-0.762 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>-0.762 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -4010,7 +4798,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>0.762 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4018,12 +4806,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>0.762 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4039,7 +4826,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>0.15239999999999998 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4047,12 +4834,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>0.15239999999999998 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4068,7 +4854,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>1.3716 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4076,12 +4862,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>1.3716 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4097,7 +4882,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>0.271 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4105,12 +4890,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>0.271 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4126,7 +4910,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>0.762 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4134,12 +4918,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>0.762 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4155,7 +4938,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>1.2530000000000001 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4163,16 +4946,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>1.2530000000000001 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>0.762 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>0.762 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -4416,7 +5226,7 @@
             <iyz>0</iyz>
           </inertia>
         </inertial>
-        <visual name="glass_back">
+        <visual name="steel_back">
           <pose>2.286 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4424,12 +5234,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_back_collision">
+        <collision name="steel_back_collision">
           <pose>2.286 -1.8427999999999998 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4445,7 +5254,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_left">
+        <visual name="steel_left">
           <pose>1.6764000000000001 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4453,12 +5262,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_left_collision">
+        <collision name="steel_left_collision">
           <pose>1.6764000000000001 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4474,7 +5282,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_right">
+        <visual name="steel_right">
           <pose>2.8956 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4482,12 +5290,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_right_collision">
+        <collision name="steel_right_collision">
           <pose>2.8956 -2.3 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4503,7 +5310,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_0">
+        <visual name="steel_front_0">
           <pose>1.795 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4511,12 +5318,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_0_collision">
+        <collision name="steel_front_0_collision">
           <pose>1.795 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4532,7 +5338,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_1">
+        <visual name="steel_front_1">
           <pose>2.286 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4540,12 +5346,11 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_1_collision">
+        <collision name="steel_front_1_collision">
           <pose>2.286 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4561,7 +5366,7 @@
             </friction>
           </surface>
         </collision>
-        <visual name="glass_front_2">
+        <visual name="steel_front_2">
           <pose>2.777 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
@@ -4569,16 +5374,43 @@
             </box>
           </geometry>
           <material>
-            <ambient>.5 .75 .9 1</ambient>
-            <diffuse>.5 .75 .9 1</diffuse>
+            <ambient>.96 .51 .05 1</ambient>
+            <diffuse>.96 .51 .05 1</diffuse>
           </material>
-          <transparency>0.82</transparency>
         </visual>
-        <collision name="glass_front_2_collision">
+        <collision name="steel_front_2_collision">
           <pose>2.777 -2.7571999999999997 0.6096 0 0 0.0</pose>
           <geometry>
             <box>
               <size>0.23720000000000002 0.012 1.2192</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>0.9</mu>
+                <mu2>0.9</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="opaque_roof">
+          <pose>2.286 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>.77 .87 .97 1</ambient>
+            <diffuse>.77 .87 .97 1</diffuse>
+          </material>
+        </visual>
+        <collision name="opaque_roof_collision">
+          <pose>2.286 -2.3 1.2112 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>1.2192 0.9144 0.016</size>
             </box>
           </geometry>
           <surface>
@@ -4815,12 +5647,12 @@
     <include>
       <uri>model://carrier</uri>
       <name>carrier</name>
-      <pose>3.2456 3.2224 0.15 0 0 0.0</pose>
+      <pose>3.2456 3.2224 0.15 0 0 3.141592653589793</pose>
     </include>
     <include>
       <uri>model://wafer</uri>
       <name>wafer</name>
-      <pose>3.2456 3.2224 0.156 0 0 0.0</pose>
+      <pose>3.2456 3.2224 0.156 0 0 3.141592653589793</pose>
     </include>
     <gui fullscreen="false">
       <plugin filename="MinimalScene" name="3D View">

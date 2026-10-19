@@ -18,33 +18,37 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wafer_transport_sim.four_room_layout import (ROOMS, ROOM_DEPTH, ROOM_LENGTH, START, FINISH,
-                                                  MAIN_PATH, SERVICE_PATH, PROCESS_STAGE_DEPTH,
+                                                  MAIN_PATH, SERVICE_PATH, CORRIDOR_WIDTH,
                                                   marker_pose)
 
 SCALE = 84            # pixels per metre
 FLOOR = '#f2f5f7'
-CORRIDOR = '#c8ced4'
+OUTSIDE = '#e0e7ed'
+TRANSPORT = '#b9d3ec'
+JUNCTION = '#c8d4df'
 TAPE = '#050505'
-GLASS = '#8fb6d0'
-STAGE = '#0f4d7a'
+BOX = '#d6eafa'
+STEEL = '#ff9800'
+DOOR = '#2377dc'
 SIGN = '#d8d2c0'
-DEFAULT = ROOT.parent / 'docs' / 'agent-work' / 'two-track-fsm' / 'two-track-overhead.png'
+DEFAULT = ROOT.parent / 'docs' / 'ten-glovebox-u-layout.png'
 
 
 def drawn_rectangles(world_path=None):
     """Read the tape and underlay rectangles the world generator committed."""
     world = ET.parse(world_path or ROOT / 'worlds' / 'four_rooms.sdf')
     floor = world.find(".//model[@name='loop_floor']")
-    drawn = {'tape': [], 'corridor': []}
+    drawn = {'tape': [], 'corridor': [], 'divider': []}
     for visual in floor.findall('.//visual'):
         name = visual.get('name', '')
         kind = ('tape' if name.startswith('tape_') else
-                'corridor' if name.startswith('corridor_') else None)
+                'corridor' if name.startswith('corridor_') else
+                'divider' if name.startswith('steel_divider_') else None)
         if kind is None:
             continue
         pose = list(map(float, visual.findtext('pose').split()))
         size = list(map(float, visual.findtext('geometry/box/size').split()))
-        drawn[kind].append(((pose[0], pose[1]), pose[5], size[0], size[1]))
+        drawn[kind].append(((pose[0], pose[1]), pose[5], size[0], size[1], name))
     return drawn
 
 
@@ -73,22 +77,34 @@ def render(path=None, world_path=None, scale=SCALE):
 
     image = Image.new('RGB', (width, height), FLOOR)
     draw = ImageDraw.Draw(image)
-    for centre, yaw, length, thickness in rectangles['corridor']:
-        rectangle(centre, yaw, length, thickness, CORRIDOR)
+    for centre, yaw, length, thickness, name in rectangles['corridor']:
+        index = int(name.rsplit('_', 1)[1])
+        colour = OUTSIDE if index < 3 else TRANSPORT if index < 6 else JUNCTION
+        rectangle(centre, yaw, length, thickness, colour)
     for room in ROOMS:
-        rectangle((room.x, room.y), room.yaw, ROOM_LENGTH, ROOM_DEPTH, GLASS)
-    for room in ROOMS:
-        rectangle(room.table[:2], room.yaw, .22, PROCESS_STAGE_DEPTH, STAGE)
+        rectangle((room.x, room.y), room.yaw, ROOM_LENGTH, ROOM_DEPTH, BOX)
+        corners = [room.local_to_world(dx, dy) for dx, dy in
+                   ((-ROOM_LENGTH/2, -ROOM_DEPTH/2), (ROOM_LENGTH/2, -ROOM_DEPTH/2),
+                    (ROOM_LENGTH/2, ROOM_DEPTH/2), (-ROOM_LENGTH/2, ROOM_DEPTH/2))]
+        draw.line([point(*xy) for xy in corners+[corners[0]]], fill=STEEL, width=5)
+        for side in ('entry', 'exit'):
+            offset = -.22 if side == 'entry' else .22
+            a = room.local_to_world(offset-CORRIDOR_WIDTH/2, -ROOM_DEPTH/2)
+            b = room.local_to_world(offset+CORRIDOR_WIDTH/2, -ROOM_DEPTH/2)
+            draw.line([point(*a), point(*b)], fill=DOOR, width=5)
         for side in ('entry', 'exit'):
             sign_x, sign_y, _, _ = marker_pose(room, side)
             rectangle((sign_x, sign_y), room.yaw, .06, .20, SIGN)
-    for centre, yaw, length, thickness in rectangles['tape']:
+    for centre, yaw, length, thickness, _ in rectangles['tape']:
         rectangle(centre, yaw, length, thickness, TAPE)
+    for centre, yaw, length, thickness, _ in rectangles['divider']:
+        rectangle(centre, yaw, length, max(thickness, .035), STEEL)
 
     draw.text(point(START[0]-.40, START[1]-.22), 'START / HOME', fill='#12303f')
     draw.text(point(FINISH[0]-.60, FINISH[1]-.22), 'turnaround', fill='#12303f')
-    draw.text(point(MAIN_PATH[1][0]+.08, MAIN_PATH[1][1]-.18), 'TRACK 1', fill='#12303f')
-    draw.text(point(SERVICE_PATH[1][0]+.08, SERVICE_PATH[1][1]-.18), 'TRACK 2', fill='#12303f')
+    draw.text(point(-1.45, .55), 'GRAY: OUTSIDE CORRIDOR / TRACK 1', fill='#12303f')
+    draw.text(point(-1.45, .30), 'BLUE: TRANSPORT CORRIDOR / TRACK 2', fill='#12303f')
+    draw.text(point(-1.45, .05), 'ORANGE: OPAQUE STEEL / BLUE: DOORS', fill='#12303f')
     for room in ROOMS:
         draw.text(point(room.x-.34, room.y), f'GLOVEBOX {room.number:02d}', fill='#0d2233')
     path.parent.mkdir(parents=True, exist_ok=True)

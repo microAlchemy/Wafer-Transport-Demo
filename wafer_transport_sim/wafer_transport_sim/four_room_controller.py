@@ -49,7 +49,8 @@ class FourRoomController(DemoNode):
                               ('tape_tolerance', .068),
                               ('intermediate_transfers', True), ('placement_hold', 1.),
                               ('minimum_cruise_speed', .07), ('curve_speed', .09),
-                              ('braking_acceleration', .35), ('allow_sensor_fallback', True)]:
+                              ('braking_acceleration', .35), ('allow_sensor_fallback', True),
+                              ('motion_stall_timeout', 6.)]:
             self.param(name, default)
         for topic, kind in [('/odom', Odometry), ('/ir/healthy', Bool), ('/ir/valid', Bool),
                             ('/ir/cmd_vel', Twist)]:
@@ -94,6 +95,7 @@ class FourRoomController(DemoNode):
         self.last_report = 0.
         self.command = Twist()
         self.fallback_active = False
+        self.motion_stall_since = None
         self.pub('/cmd_vel', Twist)
         self.change('WAIT_FOR_SIMULATOR')
         self.create_timer(.05, self.tick)
@@ -293,6 +295,10 @@ class FourRoomController(DemoNode):
             issues.append('IR array unavailable or black tape not detected')
         if self.attachment('vacuum') != 'detached':
             issues.append('initial vacuum detach not acknowledged')
+        if self.attachment('carrier') != 'attached':
+            issues.append('initial carrier attachment not acknowledged')
+        elif self.fresh('/poses/carrier', '/poses/transport_robot') and not self.carrier_mounted():
+            issues.append('carrier is not centered on its tray: ' + self.carrier_mount_status())
         if not self.value('/process/cells_detached'):
             issues.append('internal process cells have not released the wafer')
         if not self.stopped():
@@ -331,6 +337,23 @@ class FourRoomController(DemoNode):
             return False
         t = self.values['/odom'].twist.twist
         return math.hypot(t.linear.x, t.linear.y) < .004 and abs(t.angular.z) < .02
+
+    def carrier_mount_target(self):
+        rx, ry, _ = self.position('transport_robot')
+        lateral = self.joints.get('tray_y', 0.)
+        heading = self.heading()
+        return (rx-lateral*math.sin(heading),
+                ry+lateral*math.cos(heading),
+                .15+self.joints.get('tray_z', 0.))
+
+    def carrier_mounted(self):
+        return (self.attachment('carrier') == 'attached' and
+                placed(self.position('carrier'), self.carrier_mount_target(), .02, .012))
+
+    def carrier_mount_status(self):
+        return (f'attachment={self.attachment("carrier")}, '
+                f'carrier={self.position("carrier")}, expected={self.carrier_mount_target()}, '
+                f'tray_y={self.joints.get("tray_y")}, tray_z={self.joints.get("tray_z")}')
 
     def stowed(self):
         return all(self.at_joint(n, 0.) for n in ('reach_1', 'reach_2', 'wand_x', 'wand_z'))
@@ -509,10 +532,9 @@ class FourRoomController(DemoNode):
                 self.fault('State timed out: ' + self.state)
             elif self.started is not None and self.now()-self.started > self.param('mission_timeout', 600.):
                 self.fault('Ten-glovebox mission timed out')
-            elif self.state not in {'INITIAL_DETACH', 'INITIAL_ATTACH', 'HOME'}:
-                rx, ry, _ = self.position('transport_robot')
-                if self.attachment('carrier') != 'attached' or not placed(self.position('carrier'), (rx, ry, .154), .02, .012):
-                    self.fault('Onboard carrier retention lost')
+            elif self.state != 'HOME':
+                if not self.carrier_mounted():
+                    self.fault('Onboard carrier retention lost: ' + self.carrier_mount_status())
                 if self.payload == 'wand' and self.state != 'RELEASE' and self.attachment('vacuum') != 'attached':
                     self.fault('Vacuum attachment lost during transfer')
                 if self.state in DRIVING | TURNING and self.payload in {'carrier', 'entry', 'exit'}:
@@ -542,6 +564,21 @@ class FourRoomController(DemoNode):
             if deviation > self.param('tape_tolerance', .068):
                 self.fault(f'Left the selected {self.edge.name} edge ({deviation:.3f} m)')
         self.step(dt)
+        # A commanded crossing can otherwise sit against collision geometry
+        # until the much longer generic state timeout expires.
+        if self.state in DRIVING and self.command.linear.x >= .06 and self.fresh('/odom'):
+            measured = self.values['/odom'].twist.twist
+            if math.hypot(measured.linear.x, measured.linear.y) < .008:
+                if self.motion_stall_since is None:
+                    self.motion_stall_since = self.now()
+                elif self.now()-self.motion_stall_since > self.param('motion_stall_timeout', 6.):
+                    self.fault(f'Robot motion blocked in {self.state} on {self.leg}; '
+                               f'cmd={self.command.linear.x:.3f} m/s, '
+                               f'odom={math.hypot(measured.linear.x, measured.linear.y):.3f} m/s')
+            else:
+                self.motion_stall_since = None
+        else:
+            self.motion_stall_since = None
         if self.state in {'FAULT', 'COMPLETE'}:
             self.command = Twist()
         if self.state == 'FAULT':
@@ -557,7 +594,9 @@ class FourRoomController(DemoNode):
         self.send('/transport/track', String, self.edge.track, True)
         self.send('/transport/route_segment', String, self.edge.name, True)
         self.send('/rooms/active', String, self.room.code, True)
-        self.send('/carrier_ready', Bool, self.payload == 'carrier' and self.state != 'FAULT', True)
+        self.send('/carrier_ready', Bool,
+                  self.payload == 'carrier' and self.state not in {'WAIT_FOR_SIMULATOR', 'FAULT'}
+                  and self.carrier_mounted(), True)
         self.send('/wafer_delivered', Bool, self.state == 'COMPLETE', True)
 
     def step(self, dt):
@@ -571,17 +610,9 @@ class FourRoomController(DemoNode):
             self.select(entry_leg)
             self.attach('vacuum', False)
             if (self.fresh(*self.required()) and (self.primary_ready() or self.fallback_active) and
-                    self.attachment('vacuum') == 'detached' and self.stopped() and
-                    self.value('/process/cells_detached')):
+                    self.attachment('vacuum') == 'detached' and self.carrier_mounted() and
+                    self.stopped() and self.value('/process/cells_detached')):
                 self.started = self.now()
-                self.transition('INITIAL_DETACH')
-        elif s == 'INITIAL_DETACH':
-            self.attach('carrier', False)
-            if self.attachment('carrier') == 'detached':
-                self.transition('INITIAL_ATTACH')
-        elif s == 'INITIAL_ATTACH':
-            self.attach('carrier', True)
-            if self.attachment('carrier') == 'attached':
                 self.transition('HOME')
         elif s == 'HOME':
             # Camera and tray poses are not navigation safety interlocks. Jetty
@@ -594,7 +625,7 @@ class FourRoomController(DemoNode):
             for room in ROOMS:
                 for side in ('entry', 'exit'):
                     self.joint(room.door_joint(side), 0.)
-            if not self.home_blockers():
+            if not self.home_blockers() and self.stable(self.carrier_mounted()):
                 self.transition('APPROACH_ENTRY')
                 self.select(entry_leg)
         elif s == 'APPROACH_ENTRY':

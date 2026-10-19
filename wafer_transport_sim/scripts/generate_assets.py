@@ -193,8 +193,7 @@ def door():
     joint(model, 'door_mount', 'world', 'frame')
     panel = link(model, 'panel', (0, 0.155, 0.245), mass=0.4,
                  size=(0.012, 0.278, 0.48))
-    solid(panel, 'sliding_panel', (0.012, 0.278, 0.48), color='0.5 0.75 0.85 1',
-          transparency=0.35)
+    solid(panel, 'sliding_panel', (0.012, 0.278, 0.48), color='.10 .42 .90 1')
     solid(panel, 'bottom_edge', (0.016, 0.278, 0.012), (0, 0, -0.234),
           color='0.9 0.65 0.05 1')
     # Keep both operating positions clear of the mechanical joint limits.

@@ -126,10 +126,9 @@
           </box>
         </geometry>
         <material>
-          <ambient>0.5 0.75 0.85 1</ambient>
-          <diffuse>0.5 0.75 0.85 1</diffuse>
+          <ambient>.10 .42 .90 1</ambient>
+          <diffuse>.10 .42 .90 1</diffuse>
         </material>
-        <transparency>0.35</transparency>
       </visual>
       <collision name="sliding_panel_collision">
         <pose>0 0 0 0 0 0</pose>

@@ -18,6 +18,7 @@ transport_controller:
     minimum_cruise_speed: 0.07
     curve_speed: 0.09
     braking_acceleration: 0.35
+    motion_stall_timeout: 6.0
     allow_sensor_fallback: true
 ir_line_follower:
   ros__parameters:

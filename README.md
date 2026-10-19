@@ -21,6 +21,11 @@ processed wafer in its carrier.
 
 No model is teleported. Raspbot and process-cell transfers use Gazebo detachable
 joints, measured joint feedback, actual wafer pose, and supporting shelves.
+Gazebo starts the onboard carrier attached to the robot tray. The controller
+keeps that initial joint, waits for a centered carrier pose and a one-second
+stable mount before commanding motion, and reports both measured poses if
+retention is subsequently lost. The loading rails are visual-only so they
+cannot snag the attached carrier as the robot leaves home.
 
 ## Run in the Ubuntu 26.04 UTM VM
 
@@ -37,18 +42,18 @@ fi
 test -f /mnt/utm/wafer-transport-ubuntu26.04.zip
 unzip -o /mnt/utm/wafer-transport-ubuntu26.04.zip -d ~/wafer-mobile-update
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
-grep -qx 'ten-glovebox-u-tracks-20260924' wafer_transport_sim/config/release.txt || {
+grep -qx 'ten-glovebox-crossing-clearance-20260924' wafer_transport_sim/config/release.txt || {
   echo 'STOP: UTM is seeing an older ZIP.'
   exit 1
 }
 source /opt/ros/lyrical/setup.bash
-colcon --log-base log-u-tracks build \
+colcon --log-base log-crossing-clearance build \
   --base-paths ./wafer_transport_sim \
-  --build-base build-u-tracks \
-  --install-base install-u-tracks \
+  --build-base build-crossing-clearance \
+  --install-base install-crossing-clearance \
   --symlink-install \
   --packages-select wafer_transport_sim
-source install-u-tracks/local_setup.bash
+source install-crossing-clearance/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py gui:=true
 )
 ```
@@ -58,7 +63,7 @@ For later launches:
 ```bash
 cd ~/wafer-mobile-update/Wafer-Transport-Demo
 source /opt/ros/lyrical/setup.bash
-source install-u-tracks/local_setup.bash
+source install-carrier-start/local_setup.bash
 ros2 launch wafer_transport_sim demo.launch.py gui:=true
 ```
 
@@ -80,10 +85,20 @@ is not a physical red strip in the simulation. There is no third return lane.
 The generated [overhead preview](docs/ten-glovebox-u-layout.png) shows the
 committed box and tape positions.
 
+The gray outer lane is the **outside corridor**. The pale-blue inner lane is
+the **transport corridor**. An opaque orange steel wall separates them, with
+a 0.44 m opening at each of the 20 tape rungs. The clear transport corridor
+between the glovebox wall and this divider is 0.3048 m wide. The divider is
+0.64 m high, above the Raspbot's forward camera, so a robot on the outside
+lane cannot see through the transport corridor wall. It crosses only at the
+FSM-selected openings.
+
 The Raspbot chassis stays outside every glovebox. Only its telescoping wand
 crosses an open door. Each box contains its own rail robot, blue process stage,
-entry support, and exit support. The transparent walls and open roof keep the
-complete handoff visible from the Gazebo aerial camera.
+entry support, and exit support. The steel walls and roof are opaque; the
+process hardware is deliberately hidden in a bird's-eye view. Door panels are
+opaque blue. The aerial preview shows the orange steel boundary, blue doors,
+both corridors, black tracks, and rung openings.
 
 ## Nodes in the default mission
 
@@ -169,6 +184,9 @@ map to `GLOVEBOX_01_ENTRY`, `GLOVEBOX_01_EXIT`, ..., `GLOVEBOX_10_EXIT`.
 images with OpenCV and places each image on a sign in the generated
 `worlds/four_rooms.sdf`. `marker_pose()` in `four_room_layout.py` keeps signs
 ahead of their track junctions and facing the Raspbot's forward camera.
+Entry tags are on the outside-corridor side of the steel divider; exit tags
+are inside the transport corridor. The opaque wall blocks other sightlines,
+while each expected tag remains visible from its designated decision stop.
 `generate_four_rooms.py` can regenerate both the images and the world.
 
 Gazebo's forward camera publishes `/camera/image_raw` through the bridge at
@@ -255,9 +273,10 @@ Mission parameters are in `wafer_transport_sim/config/four_rooms.yaml`. Geometry
 and route constants are shared through `four_room_layout.py`; the historical
 filename is retained so existing launch commands continue to work.
 
-The two U-shaped tracks, the 20 transverse rungs, the selected-edge route plan and
-the marker positions all come from the same module, and the world generator
-draws the tape and the signs from those values. `four_room_check` records the
+The two U-shaped tracks, 20 transverse rungs, opaque divider openings,
+selected-edge route plan and marker positions all come from the same module.
+The world generator draws the tape, physical steel walls and signs from those
+values. `four_room_check` records the
 `/transport/track` and `/transport/route_segment` sequence on the VM and fails
 the run if a Track 2 excursion is missing, out of order, or if the return home
 ever leaves Track 1.

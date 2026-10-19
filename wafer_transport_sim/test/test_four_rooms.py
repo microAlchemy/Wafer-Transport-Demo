@@ -19,7 +19,9 @@ from wafer_transport_sim.four_room_layout import (
     CORRIDOR_WIDTH, DECISION_OFFSET, EDGES, JUNCTION_OFFSET, LANE_PITCH, MARKER_HEIGHT,
     MARKER_SIZE, MISSION_LENGTH, PATH, PROCESS_CONTACT_Z, PROCESS_TRAVEL,
     PROCESS_TRANSIT_WAFER_Z, ROOMS, ROOM_CODES, ROOM_DEPTH, ROOM_HEIGHT, ROOM_LENGTH, START,
-    TAPE_SEGMENTS, TRACK_1_Y, TRACK_2_Y, TURN_X, MAIN_PATH, SERVICE_PATH, HOME_EDGE, TAIL_EDGE, edge_point, edge_project,
+    TAPE_SEGMENTS, DIVIDER_PATH, DIVIDER_WALL_SEGMENTS, DIVIDER_OPENING,
+    TRACK_1_Y, TRACK_2_Y, TURN_X, MAIN_PATH, SERVICE_PATH,
+    HOME_EDGE, TAIL_EDGE, edge_point, edge_project, polyline_project,
     entry_decision_stop, entry_junction_x, entry_rung, exit_junction_x, exit_rung,
     oriented_door_clear, main_edge, marker_pose, room_stop, route_plan, service_edge,
     tag_decision_stop, tape_distance)
@@ -132,6 +134,55 @@ def test_two_track_tape_network_geometry():
     assert len(set(plan)) == len(plan)
     assert MISSION_LENGTH == pytest.approx(sum(EDGES[name].length for name in plan))
     assert 48 < MISSION_LENGTH < 53
+
+
+def _segments_cross(a, b, c, d):
+    def cross(u, v):
+        return u[0]*v[1]-u[1]*v[0]
+    r, s = (b[0]-a[0], b[1]-a[1]), (d[0]-c[0], d[1]-c[1])
+    denominator = cross(r, s)
+    if abs(denominator) < 1e-9:
+        return False
+    q = c[0]-a[0], c[1]-a[1]
+    t, u = cross(q, s)/denominator, cross(q, r)/denominator
+    return 0. <= t <= 1. and 0. <= u <= 1.
+
+
+def test_opaque_divider_blocks_outside_view_except_at_tagged_junctions():
+    world = ET.parse(ROOT/'worlds/four_rooms.sdf')
+    floor = world.find(".//model[@name='loop_floor']")
+    wall_visuals = [v for v in floor.findall('.//visual')
+                    if v.get('name', '').startswith('steel_divider_')]
+    assert len(wall_visuals) == len(DIVIDER_WALL_SEGMENTS)
+    for visual in wall_visuals:
+        name = visual.get('name')
+        assert floor.find(f".//collision[@name='{name}_collision']") is not None
+        assert float(visual.findtext('geometry/box/size').split()[2]) > .60
+        assert visual.find('transparency') is None
+    for room in ROOMS:
+        model = world.find(f".//model[@name='room_{room.number}']")
+        assert model.find(".//visual[@name='opaque_roof']") is not None
+        assert model.find(".//collision[@name='opaque_roof_collision']") is not None
+        assert all(v.find('transparency') is None for v in model.findall('.//visual'))
+        outer, inner = room.lane_point(0., 1), room.lane_point(0., 2)
+        front = room.local_to_world(0., -ROOM_DEPTH/2)
+        _, centre_to_divider = polyline_project(DIVIDER_PATH, *inner)
+        assert math.dist(front, inner)+centre_to_divider-.012 == \
+            pytest.approx(CORRIDOR_WIDTH)
+        assert any(_segments_cross(outer, inner, *wall) for wall in DIVIDER_WALL_SEGMENTS)
+        for side, rung in (('entry', entry_rung(room)), ('exit', exit_rung(room))):
+            a, b = rung.points
+            assert not any(_segments_cross(a, b, *wall) for wall in DIVIDER_WALL_SEGMENTS)
+            middle = ((a[0]+b[0])/2, (a[1]+b[1])/2)
+            assert min(math.dist(middle, end) for wall in DIVIDER_WALL_SEGMENTS
+                       for end in wall) >= DIVIDER_OPENING/2-.001
+            stop, sign = tag_decision_stop(room, side), marker_pose(room, side)
+            assert not any(_segments_cross(stop[:2], sign[:2], *wall)
+                           for wall in DIVIDER_WALL_SEGMENTS)
+            door = ET.parse(ROOT/f'models/room_{room.number}_{side}_door/model.sdf')
+            panel = door.find(".//visual[@name='sliding_panel']")
+            assert panel.find('transparency') is None
+            assert panel.findtext('material/diffuse') == '.10 .42 .90 1'
 
 
 def test_geometry_keeps_robot_lane_and_door_clearance():
@@ -334,6 +385,7 @@ class Harness:
                                     'camera_pan', 'camera_tilt'), 0.)
         self.joints.update({r.door_joint(side): 0. for r in ROOMS for side in ('entry', 'exit')})
         self.vacuum, self.carrier = 'detached', 'attached'
+        self.carrier_offset = (0., 0., 0.)
         self.wafer = (self.x, self.y, .156)
         self.cmd = Twist()
         self.applied = Twist()
@@ -380,7 +432,9 @@ class Harness:
         odom.pose.pose.orientation.w = math.cos((self.heading+.25)/2)
         b.emit('/odom', odom)
         b.emit('/poses/transport_robot', pose(self.x, self.y, 0., self.heading))
-        b.emit('/poses/carrier', pose(self.x, self.y, .15+self.joints['tray_z'], self.heading))
+        ox, oy, oz = self.carrier_offset
+        b.emit('/poses/carrier', pose(self.x+ox, self.y+oy,
+                                      .15+self.joints['tray_z']+oz, self.heading))
         b.emit('/poses/wafer', pose(*self.wafer))
         b.emit('/robot/joint_states', NS(name=list(self.joints), position=list(self.joints.values())))
         for r in ROOMS:
@@ -728,6 +782,24 @@ def test_junction_states_follow_the_selected_edge_not_the_ir_candidate(ros):
     assert abs(x-entry_junction_x(ROOMS[0])) < .02
 
 
+def test_blocked_drive_reports_stall_and_stops(ros):
+    h = Harness(ros)
+    while h.node.state != 'APPROACH_ENTRY':
+        h.advance()
+    # Simulate a wheel command blocked by real collision geometry: feedback
+    # remains fresh, but odometry and model pose stay fixed.
+    for _ in range(150):
+        ros.time += .05
+        h.applied = Twist()
+        h.feedback()
+        h.node.tick()
+        if h.node.state == 'FAULT':
+            break
+    assert h.node.state == 'FAULT'
+    assert 'Robot motion blocked in APPROACH_ENTRY' in ros.outputs['/system/fault'].data
+    assert ros.outputs['/cmd_vel'].linear.x == 0.
+
+
 def test_pose_fallback_steers_the_selected_edge_but_never_authorises_tags(ros):
     h = Harness(ros)
     n = h.node
@@ -772,6 +844,63 @@ def test_mission_waits_for_every_process_cell_to_release_the_wafer(ros):
     assert h.node.state not in ('WAIT_FOR_SIMULATOR',)
     assert h.node.started is not None
     assert h.node.state != 'FAULT'
+
+
+def test_initial_carrier_attachment_and_pose_gate_motion_without_rewelding(ros):
+    h = Harness(ros)
+    h.carrier = 'detached'
+    for _ in range(12):
+        h.advance()
+    assert h.node.state == 'WAIT_FOR_SIMULATOR'
+    assert h.cmd.linear.x == 0.
+    assert not ros.outputs['/carrier_ready'].data
+    assert '/attachments/carrier/detach' not in ros.outputs
+    assert '/attachments/carrier/attach' not in ros.outputs
+    assert 'carrier attachment' in ' '.join(h.node.readiness_issues())
+    h.carrier = 'attached'
+    h.carrier_offset = (.035, 0., 0.)
+    for _ in range(12):
+        h.advance()
+    assert h.node.state == 'WAIT_FOR_SIMULATOR'
+    assert 'not centered' in ' '.join(h.node.readiness_issues())
+    h.carrier_offset = (0., 0., 0.)
+    for _ in range(45):
+        h.advance()
+        if h.node.state == 'APPROACH_ENTRY':
+            break
+    assert h.node.state == 'APPROACH_ENTRY'
+    assert ros.outputs['/carrier_ready'].data
+    assert '/attachments/carrier/detach' not in ros.outputs
+    assert '/attachments/carrier/attach' not in ros.outputs
+
+
+def test_carrier_shift_during_travel_stops_with_measured_diagnostic(ros):
+    h = Harness(ros)
+    for _ in range(60):
+        h.advance()
+        if h.node.state == 'APPROACH_ENTRY':
+            break
+    assert h.node.state == 'APPROACH_ENTRY'
+    h.carrier_offset = (.04, 0., 0.)
+    h.advance()
+    assert h.node.state == 'FAULT'
+    assert h.cmd.linear.x == h.cmd.angular.z == 0.
+    assert not ros.outputs['/carrier_ready'].data
+    assert 'carrier=' in ros.outputs['/system/fault'].data
+
+
+def test_carrier_spawns_aligned_and_cosmetic_loading_rails_cannot_snag_it():
+    world = ET.parse(ROOT/'worlds/four_rooms.sdf')
+    for name in ('transport_robot', 'carrier', 'wafer'):
+        included = world.find(f".//include[name='{name}']")
+        values = list(map(float, included.findtext('pose').split()))
+        assert values[:2] == pytest.approx(START)
+        assert values[5] == pytest.approx(ROOMS[0].yaw)
+    floor = world.find(".//model[@name='loop_floor']")
+    assert len([v for v in floor.findall('.//visual')
+                if v.get('name', '').startswith('loading_rail_')]) == 2
+    assert not [c for c in floor.findall('.//collision')
+                if c.get('name', '').startswith('loading_rail_')]
 
 
 def test_internal_robot_processes_entry_stage_and_exit_with_feedback(ros):

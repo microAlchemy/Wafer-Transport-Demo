@@ -146,6 +146,14 @@ FINISH = (ROOMS[-1].x+HALF_LENGTH+.35, BOTTOM_MAIN_Y)
 MAIN_PATH = (START, (LEFT_MAIN_X, TOP_MAIN_Y), (LEFT_MAIN_X, BOTTOM_MAIN_Y), FINISH)
 SERVICE_PATH = ((START[0], TOP_SERVICE_Y), (LEFT_SERVICE_X, TOP_SERVICE_Y),
                 (LEFT_SERVICE_X, BOTTOM_SERVICE_Y), (FINISH[0], BOTTOM_SERVICE_Y))
+# Shift the 12 mm wall 4 mm toward Track 1.  With the 8 mm door clearance
+# offset and 12 mm room wall this leaves exactly 304.8 mm of physical clear
+# transport corridor between the room face and the divider face.
+DIVIDER_CENTER_SHIFT = .004
+_divider_fraction = .5 + DIVIDER_CENTER_SHIFT/CORRIDOR_WIDTH
+DIVIDER_PATH = tuple((b[0]+_divider_fraction*(a[0]-b[0]),
+                      b[1]+_divider_fraction*(a[1]-b[1]))
+                     for a, b in zip(MAIN_PATH, SERVICE_PATH))
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +338,38 @@ TAPE_SEGMENTS = tuple(zip(MAIN_PATH, MAIN_PATH[1:])) + \
     tuple(zip(SERVICE_PATH, SERVICE_PATH[1:])) + \
     tuple((edge.points[0], edge.points[-1]) for edge in (*ENTRY_RUNGS, *EXIT_RUNGS))
 PATH = MAIN_PATH
+
+# The opaque steel plate between the exterior and transport corridors blocks
+# the forward camera's view into the transport corridor.  Each rung has a
+# 440 mm long opening along the wall.  The corridor itself stays 1 ft wide;
+# the longer opening gives the Raspbot's 145 mm front overhang room to rotate
+# at the wall without snagging a steel endpoint.
+DIVIDER_OPENING = .44
+_openings = []
+for _rung in (*ENTRY_RUNGS, *EXIT_RUNGS):
+    _a, _b = _rung.points
+    _main, _service = (_a, _b) if _rung.kind == 'rung_in' else (_b, _a)
+    _crossing = (_service[0]+_divider_fraction*(_main[0]-_service[0]),
+                 _service[1]+_divider_fraction*(_main[1]-_service[1]))
+    _distance, _offset = polyline_project(DIVIDER_PATH, *_crossing)
+    assert _offset < 1e-7
+    _openings.append((_distance-DIVIDER_OPENING/2,
+                      _distance+DIVIDER_OPENING/2))
+_openings.sort()
+assert all(a[1] < b[0] for a, b in zip(_openings, _openings[1:]))
+_solid_intervals = []
+_cursor = 0.
+for _lo, _hi in _openings:
+    if _lo > _cursor:
+        _solid_intervals.append((_cursor, _lo))
+    _cursor = _hi
+_solid_intervals.append((_cursor, polyline_length(DIVIDER_PATH)))
+DIVIDER_WALL_SEGMENTS = tuple(
+    (a, b) for lo, hi in _solid_intervals
+    for a, b in zip(polyline_slice(DIVIDER_PATH, lo, hi),
+                    polyline_slice(DIVIDER_PATH, lo, hi)[1:])
+    if math.dist(a, b) > 1e-7
+)
 
 
 def edge_project(edge, x, y):

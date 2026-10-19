@@ -12,7 +12,8 @@ from generate_assets import (ROOT, WHITE, BLUE, SILVER, el, pose, plugin, link, 
 from generate_raspbot import generate as generate_raspbot
 
 sys.path.insert(0, str(ROOT))
-from wafer_transport_sim.four_room_layout import (ROOMS, TAPE_SEGMENTS, START, ROOM_LENGTH,
+from wafer_transport_sim.four_room_layout import (ROOMS, TAPE_SEGMENTS, DIVIDER_WALL_SEGMENTS,
+                                                  START, ROOM_LENGTH,
                                                   ROOM_DEPTH, ROOM_HEIGHT,
                                                   CORRIDOR_WIDTH, MARKER_SIZE, marker_pose,
                                                   SUPPORT_TOP, PROCESS_STAGE_DEPTH,
@@ -53,15 +54,27 @@ def generate():
             continue
         center = ((a[0]+b[0])/2, (a[1]+b[1])/2, .00015)
         heading = math.atan2(b[1]-a[1], b[0]-a[0])
+        lane_color = ('.86 .90 .94 1' if i < 3 else
+                      '.72 .83 .94 1' if i < 6 else '.78 .84 .89 1')
         solid(body, f'corridor_{i}', (length+.002, CORRIDOR_WIDTH, .0002), center,
-              rpy=(0, 0, heading), color='.72 .75 .77 1', collision=False)
+              rpy=(0, 0, heading), color=lane_color, collision=False)
         solid(body, f'tape_{i}', (length+.001, .018, .0005),
               ((a[0]+b[0])/2, (a[1]+b[1])/2, .0003),
               rpy=(0, 0, heading),
               color='.005 .005 .005 1', collision=False)
+    # Opaque steel divider makes Track 1 a genuine *outside* corridor.  Each
+    # rung has a full-foot opening; the camera cannot see into Track 2 from an
+    # arbitrary point on Track 1, while the robot still crosses at a junction.
+    for i, (a, b) in enumerate(DIVIDER_WALL_SEGMENTS):
+        length = math.dist(a, b)
+        heading = math.atan2(b[1]-a[1], b[0]-a[0])
+        solid(body, f'steel_divider_{i}', (length, .012, .64),
+              ((a[0]+b[0])/2, (a[1]+b[1])/2, .32),
+              rpy=(0, 0, heading), color='.96 .51 .05 1')
     for dy in (-.054, .054):
         solid(body, 'loading_rail_' + str(dy), (.15, .016, .008),
-              (START[0], START[1]+dy, .142), color=SILVER)
+              (START[0], START[1]+dy, .142), color=SILVER,
+              collision=False)
 
     logo_img = Image.new('RGB', (200, 100), '#0c2340')
     d = ImageDraw.Draw(logo_img)
@@ -132,21 +145,23 @@ def generate():
 
         # All structure is constructed in the room frame, then rotated into
         # the top, left, or bottom run of the aerial U.
-        local_solid('glass_back', (ROOM_LENGTH, .012, ROOM_HEIGHT),
+        local_solid('steel_back', (ROOM_LENGTH, .012, ROOM_HEIGHT),
                     0., ROOM_DEPTH/2, ROOM_HEIGHT/2,
-                    color='.5 .75 .9 1', transparency=.82)
+                    color='.96 .51 .05 1')
         for wall_x, wall_name in ((-ROOM_LENGTH/2, 'left'), (ROOM_LENGTH/2, 'right')):
-            local_solid(f'glass_{wall_name}', (.012, ROOM_DEPTH, ROOM_HEIGHT),
+            local_solid(f'steel_{wall_name}', (.012, ROOM_DEPTH, ROOM_HEIGHT),
                         wall_x, 0., ROOM_HEIGHT/2,
-                        color='.5 .75 .9 1', transparency=.82)
+                        color='.96 .51 .05 1')
         opening = CORRIDOR_WIDTH
         entry_x, exit_x = -.22, .22
         for i, (lo, hi) in enumerate(((-ROOM_LENGTH/2, entry_x-opening/2),
                                       (entry_x+opening/2, exit_x-opening/2),
                                       (exit_x+opening/2, ROOM_LENGTH/2))):
-            local_solid(f'glass_front_{i}', (hi-lo, .012, ROOM_HEIGHT),
+            local_solid(f'steel_front_{i}', (hi-lo, .012, ROOM_HEIGHT),
                         (lo+hi)/2, -ROOM_DEPTH/2, ROOM_HEIGHT/2,
-                        color='.5 .75 .9 1', transparency=.82)
+                        color='.96 .51 .05 1')
+        local_solid('opaque_roof', (ROOM_LENGTH, ROOM_DEPTH, .016),
+                    0., 0., ROOM_HEIGHT-.008, color='.77 .87 .97 1')
         for side in ('entry', 'exit'):
             x, door_y = room.door_position(side)
             name = f'room_{room.number}_{side}_door'
@@ -180,6 +195,12 @@ def generate():
                 element.find('geometry/box/size').text = (
                     element.findtext('geometry/box/size').split()[0] +
                     f' {CORRIDOR_WIDTH} ' + element.findtext('geometry/box/size').split()[2])
+            sliding = panel.find("visual[@name='sliding_panel']")
+            for component in ('ambient', 'diffuse'):
+                sliding.find('material/'+component).text = '.10 .42 .90 1'
+            opacity = sliding.find('transparency')
+            if opacity is not None:
+                sliding.remove(opacity)
             save_model(name, door)
             include(name, (x+center*math.cos(room.yaw),
                            door_y+center*math.sin(room.yaw), 0.),
@@ -226,8 +247,11 @@ def generate():
         mappings.append(dict(ros_topic_name=topic, gz_topic_name=topic,
                              ros_type_name='std_msgs/msg/Float64',
                              gz_type_name='gz.msgs.Double', direction='ROS_TO_GZ'))
-    include('carrier', (*START, .15))
-    include('wafer', (*START, .156))
+    # The detachable tray joint starts attached in Gazebo.  Give the child
+    # models the same orientation as the robot before that first physics tick;
+    # never detach and reattach the carrier just to initialize it.
+    include('carrier', (*START, .15), heading=ROOMS[0].yaw)
+    include('wafer', (*START, .156), heading=ROOMS[0].yaw)
     gui = el(world, 'gui', fullscreen='false')
     view = el(gui, 'plugin', filename='MinimalScene', name='3D View')
     el(view, 'engine', 'ogre2')
