@@ -50,8 +50,8 @@ curl --fail --show-error --location --retry 3 \
 sudo dpkg -i "$wafer_install_tmp/ros2-apt-source.deb"
 sudo apt-get update
 sudo apt-get install -y \
-  ros-lyrical-desktop ros-lyrical-ros-gz \
-  ros-dev-tools python3-setuptools
+  ros-lyrical-desktop ros-lyrical-ros-gz ros-lyrical-cv-bridge \
+  ros-dev-tools python3-setuptools python3-opencv python3-numpy python3-matplotlib
 
 # ROS setup scripts are not guaranteed to be nounset-safe.
 set +u

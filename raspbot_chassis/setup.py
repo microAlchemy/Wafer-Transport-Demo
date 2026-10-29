@@ -14,12 +14,15 @@ for directory in ('launch', 'worlds', 'models', 'config'):
             data_files.append(('share/' + PACKAGE + '/' + str(parent), files))
 
 setup(
-    name=PACKAGE, version='0.1.0', packages=[],
+    name=PACKAGE, version='0.1.0', packages=[PACKAGE],
     data_files=data_files, install_requires=['setuptools'],
     zip_safe=False,
     maintainer='Wafer Transport Demo maintainers',
     maintainer_email='maintainer@example.com',
-    description='Minimal Raspbot V2 chassis simulation',
+    description='Raspbot V2 simulated-camera PID line follower',
     license='Apache-2.0', url='https://github.com/srigan-s/Wafer-Transport-Demo',
-    entry_points={'console_scripts': []},
+    entry_points={'console_scripts': [
+        'camera_view = raspbot_chassis.camera_view:main',
+        'line_controller = raspbot_chassis.main:main',
+    ]},
 )

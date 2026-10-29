@@ -1,42 +1,39 @@
-
-<?xml version="1.0"?>
+<?xml version='1.0' encoding='utf-8'?>
 <sdf version="1.9">
   <world name="chassis_demo">
-
     <physics name="physics" type="ignored">
       <max_step_size>0.001</max_step_size>
     </physics>
-
-    <plugin filename="gz-sim-physics-system"
-            name="gz::sim::systems::Physics"/>
-    <plugin filename="gz-sim-user-commands-system"
-            name="gz::sim::systems::UserCommands"/>
-    <plugin filename="gz-sim-scene-broadcaster-system"
-            name="gz::sim::systems::SceneBroadcaster"/>
-
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics" />
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands" />
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster" />
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
     <scene>
       <ambient>0.8 0.8 0.8 1</ambient>
       <background>0.85 0.9 0.95 1</background>
     </scene>
-
     <light name="sun" type="directional">
       <diffuse>1 1 1 1</diffuse>
       <direction>-0.3 -0.3 -1</direction>
     </light>
-
-    <!-- White floor -->
     <model name="floor">
       <static>true</static>
       <link name="surface">
         <pose>0 0 -0.01 0 0 0</pose>
         <collision name="ground">
           <geometry>
-            <box><size>4 4 0.02</size></box>
+            <box>
+              <size>4 4 0.02</size>
+            </box>
           </geometry>
         </collision>
         <visual name="ground">
           <geometry>
-            <box><size>4 4 0.02</size></box>
+            <box>
+              <size>4 4 0.02</size>
+            </box>
           </geometry>
           <material>
             <ambient>0.9 0.9 0.9 1</ambient>
@@ -45,16 +42,542 @@
         </visual>
       </link>
     </model>
-
-    <!-- Black line for line following -->
     <model name="black_line">
       <static>true</static>
       <link name="line_link">
-        <visual name="line_visual">
-          <pose>0 0 0.001 0 0 0</pose>
+        <visual name="tape_00">
+          <pose>-1.4 0.0 0.001 0 0 0.0</pose>
           <geometry>
             <box>
-              <size>3.0 0.05 0.001</size>
+              <size>0.703 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_01">
+          <pose>-1.032346703461235 0.0006935999100462081 0.001 0 0 0.03926990816987254</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_02">
+          <pose>-0.997148948827183 0.00346372327614021 0.001 0 0 0.11780972450961662</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316172 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_03">
+          <pose>-0.9622770384983694 0.008986891276616777 0.001 0 0 0.19634954084936318</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316176 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_04">
+          <pose>-0.9279459693980581 0.01722905174411323 0.001 0 0 0.2748893571891065</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161795 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_05">
+          <pose>-0.8943674039834917 0.02813938901855094 0.001 0 0 0.3534291735288516</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316173 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_06">
+          <pose>-0.8617483652764568 0.04165063724257771 0.001 0 0 0.43196898986859567</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316177 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_07">
+          <pose>-0.8302899604975135 0.05767949507794646 0.001 0 0 0.5105088062083415</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316171 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_08">
+          <pose>-0.800186141173105 0.07612713928596607 0.001 0 0 0.5890486225480864</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_09">
+          <pose>-0.7716225073599022 0.09687983400562987 0.001 0 0 0.6675884388878324</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_10">
+          <pose>-0.7447751633587355 0.11980963197301983 0.001 0 0 0.7461282552275745</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316175 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_11">
+          <pose>-0.5903805922287441 0.2732233047033631 0.001 0 0 0.7853981633974482</pose>
+          <geometry>
+            <box>
+              <size>0.403 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_12">
+          <pose>-0.43598602109875273 0.4266369774337063 0.001 0 0 0.746128255227576</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316171 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_13">
+          <pose>-0.409138677097586 0.44956677540109635 0.001 0 0 0.6675884388878314</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316177 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_14">
+          <pose>-0.38057504328438313 0.47031947012076014 0.001 0 0 0.5890486225480867</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316179 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_15">
+          <pose>-0.3504712239599747 0.48876711432877973 0.001 0 0 0.5105088062083418</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316172 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_16">
+          <pose>-0.3190128191810314 0.5047959721641485 0.001 0 0 0.4319689898685961</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316171 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_17">
+          <pose>-0.28639378047399655 0.5183072203881753 0.001 0 0 0.3534291735288515</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316179 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_18">
+          <pose>-0.25281521505943005 0.529217557662613 0.001 0 0 0.27488935718910523</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_19">
+          <pose>-0.21848414595911886 0.5374597181301094 0.001 0 0 0.19634954084936346</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316177 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_20">
+          <pose>-0.18361223563030524 0.542982886130586 0.001 0 0 0.11780972450961721</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_21">
+          <pose>-0.1484144809962533 0.54575300949668 0.001 0 0 0.03926990816987182</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_22">
+          <pose>0.06923881554251182 0.5464466094067262 0.001 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.403 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_23">
+          <pose>0.28689211208127696 0.54575300949668 0.001 0 0 -0.03926990816987182</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_24">
+          <pose>0.3220898667153289 0.542982886130586 0.001 0 0 -0.11780972450961721</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_25">
+          <pose>0.3569617770441425 0.5374597181301094 0.001 0 0 -0.19634954084936346</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316177 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_26">
+          <pose>0.3912928461444537 0.529217557662613 0.001 0 0 -0.27488935718910523</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_27">
+          <pose>0.4248714115590202 0.5183072203881753 0.001 0 0 -0.3534291735288515</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316179 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_28">
+          <pose>0.45749045026605506 0.5047959721641485 0.001 0 0 -0.43196898986859755</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316174 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_29">
+          <pose>0.4889488550449984 0.48876711432877973 0.001 0 0 -0.510508806208341</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316177 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_30">
+          <pose>0.5190526743694068 0.47031947012076014 0.001 0 0 -0.5890486225480854</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316176 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_31">
+          <pose>0.5476163081826096 0.44956677540109635 0.001 0 0 -0.6675884388878324</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_32">
+          <pose>0.5744636521837764 0.4266369774337063 0.001 0 0 -0.7461282552275749</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161754 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_33">
+          <pose>0.7288582233137678 0.2732233047033631 0.001 0 0 -0.7853981633974482</pose>
+          <geometry>
+            <box>
+              <size>0.4030000000000001 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_34">
+          <pose>0.8832527944437593 0.11980963197301983 0.001 0 0 -0.7461282552275749</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161754 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_35">
+          <pose>0.910100138444926 0.09687983400562986 0.001 0 0 -0.6675884388878324</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161726 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_36">
+          <pose>0.9386637722581288 0.07612713928596604 0.001 0 0 -0.5890486225480864</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_37">
+          <pose>0.9687675915825372 0.057679495077946445 0.001 0 0 -0.5105088062083415</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316171 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_38">
+          <pose>1.0002259963614804 0.0416506372425777 0.001 0 0 -0.4319689898685968</pose>
+          <geometry>
+            <box>
+              <size>0.038333834183161664 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_39">
+          <pose>1.0328450350685152 0.028139389018550932 0.001 0 0 -0.3534291735288506</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316184 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_40">
+          <pose>1.0664236004830818 0.017229051744113225 0.001 0 0 -0.2748893571891072</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316169 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_41">
+          <pose>1.100754669583393 0.008986891276616775 0.001 0 0 -0.19634954084936249</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316187 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_42">
+          <pose>1.1356265799122067 0.00346372327614021 0.001 0 0 -0.11780972450961662</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316172 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_43">
+          <pose>1.1708243345462588 0.0006935999100462081 0.001 0 0 -0.03926990816987254</pose>
+          <geometry>
+            <box>
+              <size>0.03833383418316178 0.05 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0 0 0 1</ambient>
+            <diffuse>0 0 0 1</diffuse>
+          </material>
+        </visual>
+        <visual name="tape_44">
+          <pose>1.3884776310850238 0.0 0.001 0 0 0.0</pose>
+          <geometry>
+            <box>
+              <size>0.40300000000000014 0.05 0.001</size>
             </box>
           </geometry>
           <material>
@@ -64,6 +587,10 @@
         </visual>
       </link>
     </model>
-
+    <include>
+      <uri>model://raspbot_v2</uri>
+      <name>transport_robot</name>
+      <pose>-1.55 0 0 0 0 0</pose>
+    </include>
   </world>
 </sdf>
